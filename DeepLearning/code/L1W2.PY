@@ -1,5 +1,7 @@
 import math 
 import numpy as np
+import time
+
 
 def sigmoid(x):
     s = 1 / (1 + np.exp(-x))
@@ -18,23 +20,28 @@ def image2vector(image):
 
     return v
 
+def normalizeRows(x):
+    x_norm = np.linalg.norm(x, axis = 1, keepdims = True)
+    
+    # Divide x by its norm.
+    x = x / x_norm
+    ### END CODE HERE ###
 
+    return x
+def softmax(x):
 
-x = np.array([1, 2, 3])
-print ("sigmoid_derivative(x) = " + str(sigmoid_derivative(x)))
+    x_exp = np.exp(x)
 
+    x_sum = np.sum(x_exp, axis = 1, keepdims = True)
 
-# This is a 3 by 3 by 2 array, typically images will be (num_px_x, num_px_y,3) where 3 represents the RGB values
-image = np.array([[[ 0.67826139,  0.29380381],
-        [ 0.90714982,  0.52835647],
-        [ 0.4215251 ,  0.45017551]],
+    s = x_exp / x_sum
+    
+    return s
 
-       [[ 0.92814219,  0.96677647],
-        [ 0.85304703,  0.52351845],
-        [ 0.19981397,  0.27417313]],
+def L1(yhat, y):
+    loss = np.sum(np.abs(y - yhat))
+    return loss
 
-       [[ 0.60659855,  0.00533165],
-        [ 0.10820313,  0.49978937],
-        [ 0.34144279,  0.94630077]]])
-
-print ("image2vector(image) = " + str(image2vector(image)))
+def L2(yhat, y):
+    loss = np.dot((y - yhat),(y - yhat).T)
+    return loss
