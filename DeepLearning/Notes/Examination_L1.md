@@ -906,3 +906,5 @@ my_predicted_image = predict(d["w"], d["b"], my_image)
 plt.imshow(image)
 print("y = " + str(np.squeeze(my_predicted_image)) + ", your algorithm predicts a \"" + classes[int(np.squeeze(my_predicted_image)),].decode("utf-8") +  "\" picture.")
 ```
+
+# 用1层隐藏层的神经网络分类二维数据
