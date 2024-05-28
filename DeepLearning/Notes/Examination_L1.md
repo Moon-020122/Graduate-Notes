@@ -907,4 +907,828 @@ plt.imshow(image)
 print("y = " + str(np.squeeze(my_predicted_image)) + ", your algorithm predicts a \"" + classes[int(np.squeeze(my_predicted_image)),].decode("utf-8") +  "\" picture.")
 ```
 
-# 用1层隐藏层的神经网络分类二维数据
+# 单隐层的神经网络分类二维数据
+
+## 1-安装包
+
+- [numpy](https://www.heywhale.com/api/notebooks/5e85d6bf95b029002ca7e7e6/www.numpy.org)是Python科学计算的基本包。
+
+- [sklearn](http://scikit-learn.org/stable/)提供了用于数据挖掘和分析的简单有效的工具。
+
+- [matplotlib](http://matplotlib.org/) 是在Python中常用的绘制图形的库。
+
+- testCases提供了一些测试示例用以评估函数的正确性
+
+- planar_utils提供了此作业中使用的各种函数
+
+  导入以下依赖库。
+
+```python
+# Package imports
+import numpy as np
+import matplotlib.pyplot as plt
+from testCases import *
+import sklearn
+import sklearn.datasets
+import sklearn.linear_model
+from planar_utils import plot_decision_boundary, sigmoid, load_planar_dataset, load_extra_datasets
+
+%matplotlib inline
+
+np.random.seed(1) # set a seed so that the results are consistent
+```
+
+## 2-数据集
+
+`plt.scatter` 是 Matplotlib 库中用于绘制散点图的函数。它的语法和参数如下：
+
+```python
+plt.scatter(x, y, s=None, c=None, marker=None, cmap=None, norm=None, vmin=None, vmax=None, alpha=None, linewidths=None, edgecolors=None, plotnonfinite=False, data=None, **kwargs)
+```
+
+将“flower” 2分类数据集加载到变量 `X` 和 `Y`中。
+
+  \- 包含特征（x1，x2）的numpy数组（矩阵）X
+  \- 包含标签（红色：0，蓝色：1）的numpy数组（向量）Y。
+
+这里的X是[2,N]矩阵，第一行为横坐标，第二行为纵坐标。
+
+```python
+X, Y = load_planar_dataset() 
+```
+
+使用matplotlib可视化数据集。 数据看起来像是带有一些红色（标签y = 0）和一些蓝色（y = 1）点的“花”。 我们的目标是建立一个适合该数据的分类模型。
+
+- `X[0, :]` 和 `X[1, :]`：这两个是散点图中点的横纵坐标。`X[0, :]` 是所有点的横坐标集合，`X[1, :]` 是所有点的纵坐标集合。
+- `c=Y.reshape(X[0,:].shape)`：这里的 `c` 参数代表颜色。`Y` 是一个颜色标签数组，通过 `reshape` 方法将其形状调整为与 `X[0,:]` 相同，这样每个点都会根据 `Y` 中的标签被着色。
+- `s=40`：这是设置散点的大小，这里设置为40。
+- `cmap=plt.cm.Spectral`：`cmap` 参数指定了一个颜色映射，`plt.cm.Spectral` 是一个颜色映射的名称，它包含了从红色到蓝色的一系列颜色，用于根据 `c` 参数给点着色。
+
+```python
+# Visualize the data:
+plt.scatter(X[0, :], X[1, :], c=Y.reshape(X[0,:].shape), s=40, cmap=plt.cm.Spectral)
+```
+
+output：
+
+<img src="images/image-20240528193307428.png" alt="image-20240528193307428" style="zoom:50%;" />
+
+了解一下我们的数据。
+
+```PYTHON
+### START CODE HERE ### (≈ 3 lines of code)
+shape_X = X.shape
+shape_Y = Y.shape
+
+m = shape_X[1]  # training set size
+### END CODE HERE ###
+
+print ('The shape of X is: ' + str(shape_X))
+print ('The shape of Y is: ' + str(shape_Y))
+print ('I have m = %d training examples!' % (m))
+```
+
+output：
+
+```PYTHON
+The shape of X is: (2, 400)
+The shape of Y is: (1, 400)
+I have m = 400 training examples!
+```
+
+## 3-简单Logistic回归
+
+​	在构建完整的神经网络之前，首先让我们看看逻辑回归在此问题上的表现。 你可以使用sklearn的内置函数来执行此操作。 运行以下代码以在数据集上训练逻辑回归分类器。
+
+```PYTHON
+# Train the logistic regression classifier
+clf = sklearn.linear_model.LogisticRegressionCV();
+clf.fit(X.T, Y.T);
+```
+
+运行下面的代码以绘制此模型的决策边界：
+
+```PYTHON
+# Plot the decision boundary for logistic regression
+plot_decision_boundary(lambda x: clf.predict(x), X, Y)
+plt.title("Logistic Regression")
+
+# Print accuracy
+LR_predictions = clf.predict(X.T)
+print ('Accuracy of logistic regression: %d ' % float((np.dot(Y,LR_predictions) + np.dot(1-Y,1-LR_predictions))/float(Y.size)*100) +
+       '% ' + "(percentage of correctly labelled datapoints)")
+```
+
+output：
+
+```PYTHON
+Accuracy of logistic regression: 47 % (percentage of correctly labelled datapoints)
+```
+
+
+
+<img src="images/image-20240528195612442.png" alt="image-20240528195612442" style="zoom: 67%;" />
+
+​	可以看到分类的效果并不好，这是由于数据集不是线性可分类的，因此逻辑回归效果不佳。
+
+## 4-神经网络
+
+<img src="https://cdn.kesci.com/upload/image/q17ipqoyrg.png?imageView2/0/w/960/h/960" alt="Image Name" style="zoom:80%;" />
+
+**数学原理**，a<sup>[1]</sup><sup>(1)</sup><sub>1</sub>(上标：[第一层]（第一个样本）下标：第一个隐藏层神经元)；其余以此类推。
+$$
+z^{[1] (i)} =  W^{[1]} x^{(i)} + b^{[1] (i)}\tag{1}
+$$
+
+$$
+a^{[1] (i)} = \tanh(z^{[1] (i)})\tag{2}
+$$
+
+$$
+z^{[2] (i)} = W^{[2]} a^{[1] (i)} + b^{[2] (i)}\tag{3}
+$$
+
+$$
+\hat{y}^{(i)} = a^{[2] (i)} = \sigma(z^{ [2] (i)})\tag{4}
+$$
+
+$$
+y^{(i)}_{prediction} = \begin{cases} 1 & \mbox{if } a^{[2](i)} > 0.5 \\ 0 & \mbox{otherwise } \end{cases}\tag{5}
+$$
+
+损失函数𝐽:
+$$
+J = - \frac{1}{m} \sum\limits_{i = 0}^{m} \large\left(\small y^{(i)}\log\left(a^{[2] (i)}\right) + (1-y^{(i)})\log\left(1- a^{[2] (i)}\right)  \large  \right) \small \tag{6}
+$$
+建立神经网络的一般方法是：
+1.定义神经网络结构（输入单元数，隐藏单元数等）。
+2.初始化模型的参数
+3.循环：
+
+- 实现前向传播
+- 计算损失
+- 后向传播以获得梯度
+- 更新参数（梯度下降）
+
+通常会构建辅助函数来计算第1-3步，然后将它们合并为`nn_model()`函数。一旦构建了`nn_model()`并学习了正确的参数，就可以对新数据进行预测。
+
+### 4.1 定义神经网络结构
+
+**练习**：定义三个变量：
+   \- n_x：输入层的大小
+   \- n_h：隐藏层的大小（将其设置为4）
+   \- n_y：输出层的大小
+
+**提示**：使用shape来找到n_x和n_y。 另外，将隐藏层大小硬编码为4。
+
+```python
+# GRADED FUNCTION: layer_sizes
+# 一般X,Y会预处理为一个(N,1)矩阵。
+def layer_sizes(X, Y):
+    """
+    Arguments:
+    X -- input dataset of shape (input size, number of examples)
+    Y -- labels of shape (output size, number of examples)
+    
+    Returns:
+    n_x -- the size of the input layer
+    n_h -- the size of the hidden layer
+    n_y -- the size of the output layer
+    """
+    ### START CODE HERE ### (≈ 3 lines of code)
+    n_x = X.shape[0] # size of input layer
+    n_h = 4
+    n_y = Y.shape[0] # size of output layer
+    ### END CODE HERE ###
+    return (n_x, n_h, n_y)
+
+X_assess, Y_assess = layer_sizes_test_case()
+(n_x, n_h, n_y) = layer_sizes(X_assess, Y_assess)
+print("The size of the input layer is: n_x = " + str(n_x))
+print("The size of the hidden layer is: n_h = " + str(n_h))
+print("The size of the output layer is: n_y = " + str(n_y))
+```
+
+output：
+
+```PYTHON
+The size of the input layer is: n_x = 5
+The size of the hidden layer is: n_h = 4
+The size of the output layer is: n_y = 2
+```
+
+### 4.2随机初始化参数
+
+​	如笔记中所说，单隐层神经网络需要随机初始化参数，避免训练无效果。
+
+**练习**：实现函数 `initialize_parameters()`。
+
+**说明**：
+
+- 请确保参数大小正确。 如果需要，也可参考上面的神经网络图。
+- 使用随机值初始化权重矩阵。
+     \- 使用：`np.random.randn（a，b）* 0.01`随机初始化维度为（a，b）的矩阵。
+- 将偏差向量初始化为零。
+     \- 使用：`np.zeros((a,b))` 初始化维度为（a，b）零的矩阵。
+
+```python
+# GRADED FUNCTION: initialize_parameters
+
+def initialize_parameters(n_x, n_h, n_y):
+    """
+    Argument:
+    n_x -- size of the input layer
+    n_h -- size of the hidden layer
+    n_y -- size of the output layer
+    
+    Returns:
+    params -- python dictionary containing your parameters:
+                    W1 -- weight matrix of shape (n_h, n_x)
+                    b1 -- bias vector of shape (n_h, 1)
+                    W2 -- weight matrix of shape (n_y, n_h)
+                    b2 -- bias vector of shape (n_y, 1)
+    """
+    
+    np.random.seed(2) # we set up a seed so that your output matches ours although the initialization is random.
+    
+    ### START CODE HERE ### (≈ 4 lines of code)
+    W1 = np.random.randn(n_h,n_x) * 0.01
+    b1 = np.zeros((n_h,1))
+    W2 = np.random.randn(n_y,n_h) * 0.01
+    b2 = np.zeros((n_y,1))
+    ### END CODE HERE ###
+    #笔记中有记载，W1矩阵是一个是一个[n_h,n_x]的矩阵,这是向量化后的计算式，实际各分式子应参照笔记中可以直观看出。
+    assert (W1.shape == (n_h, n_x))#与X（向量化后）相乘后，出现一个[n_h,1]的矩阵。
+    assert (b1.shape == (n_h, 1))
+    assert (W2.shape == (n_y, n_h))
+    assert (b2.shape == (n_y, 1))
+    
+    parameters = {"W1": W1,
+                  "b1": b1,
+                  "W2": W2,
+                  "b2": b2}
+    
+    return parameters
+
+
+n_x, n_h, n_y = initialize_parameters_test_case()
+
+parameters = initialize_parameters(n_x, n_h, n_y)
+print("W1 = " + str(parameters["W1"]))
+print("b1 = " + str(parameters["b1"]))
+print("W2 = " + str(parameters["W2"]))
+print("b2 = " + str(parameters["b2"]))
+```
+
+output：
+
+```python
+W1 = [[-0.00416758 -0.00056267]
+ [-0.02136196  0.01640271]
+ [-0.01793436 -0.00841747]
+ [ 0.00502881 -0.01245288]]
+b1 = [[0.]
+ [0.]
+ [0.]
+ [0.]]
+W2 = [[-0.01057952 -0.00909008  0.00551454  0.02292208]]
+b2 = [[0.]]
+```
+
+### 4.3循环
+
+**问题**：实现`forward_propagation（）`。
+
+**说明**：
+
+- 在上方查看分类器的数学表示形式。
+- 你可以使用内置在笔记本中的`sigmoid()`函数。
+- 你也可以使用numpy库中的`np.tanh（）`函数。
+- 必须执行以下步骤：
+     1.使用`parameters [“ ..”]`从字典“ parameters”（这是`initialize_parameters（）`的输出）中检索出每个参数。
+     2.实现正向传播，计算𝑍[1],𝐴[1],𝑍[2] 和 𝐴[2] （所有训练数据的预测结果向量）。
+- 向后传播所需的值存储在`cache`中， `cache`将作为反向传播函数的输入。
+
+```python
+# GRADED FUNCTION: forward_propagation
+
+def forward_propagation(X, parameters):
+    """
+    Argument:
+    X -- input data of size (n_x, m)
+    parameters -- python dictionary containing your parameters (output of initialization function)
+    
+    Returns:
+    A2 -- The sigmoid output of the second activation
+    cache -- a dictionary containing "Z1", "A1", "Z2" and "A2"
+    """
+    # Retrieve each parameter from the dictionary "parameters"
+    ### START CODE HERE ### (≈ 4 lines of code)
+    W1 = parameters["W1"]
+    b1 = parameters["b1"]
+    W2 = parameters["W2"]
+    b2 = parameters["b2"]
+    ### END CODE HERE ###
+    
+    # Implement Forward Propagation to calculate A2 (probabilities)
+    ### START CODE HERE ### (≈ 4 lines of code)
+    Z1 = np.dot(W1,X) + b1
+    A1 = np.tanh(Z1)
+    Z2 = np.dot(W2,A1) + b2
+    A2 = sigmoid(Z2)
+    ### END CODE HERE ###
+    
+    assert(A2.shape == (1, X.shape[1]))
+    
+    cache = {"Z1": Z1,
+             "A1": A1,
+             "Z2": Z2,
+             "A2": A2}
+    
+    return A2, cache
+
+X_assess, parameters = forward_propagation_test_case()
+
+A2, cache = forward_propagation(X_assess, parameters)
+
+# Note: we use the mean here just to make sure that your output matches ours. 
+print(np.mean(cache['Z1']) ,np.mean(cache['A1']),np.mean(cache['Z2']),np.mean(cache['A2']))
+```
+
+output：
+
+```PYTHON
+-0.0004997557777419913 -0.000496963353231779 0.00043818745095914653 0.500109546852431
+```
+
+现在，你已经计算了包含每个示例的![image-20240528204452259](images/image-20240528204452259.png)的![image-20240528204457680](images/image-20240528204457680.png)（在Python变量“`A2`”中)，其中，你可以计算损失函数如下：
+$$
+J = - \frac{1}{m} \sum\limits_{i = 0}^{m} \large{(} \small y^{(i)}\log\left(a^{[2] (i)}\right) + (1-y^{(i)})\log\left(1- a^{[2] (i)}\right) \large{)} \small\tag{13}
+$$
+**练习**：实现`compute_cost（）`以计算损失𝐽的值。
+
+**说明**：
+
+- 有很多种方法可以实现交叉熵损失。 我们为你提供了实现方法：
+  $$
+  - \sum\limits_{i=0}^{m}  y^{(i)}\log(a^{[2](i)})
+  $$
+
+  ```python
+  logprobs = np.multiply(np.log(A2),Y)  
+  cost = - np.sum(logprobs)                # no need to use a for loop!
+  ```
+
+（你也可以使用np.multiply()然后使用np.sum()或直接使用np.dot()）。
+
+```python
+# GRADED FUNCTION: compute_cost
+
+def compute_cost(A2, Y, parameters):
+    """
+    Computes the cross-entropy cost given in equation (13)
+    
+    Arguments:
+    A2 -- The sigmoid output of the second activation, of shape (1, number of examples)
+    Y -- "true" labels vector of shape (1, number of examples)
+    parameters -- python dictionary containing your parameters W1, b1, W2 and b2
+    
+    Returns:
+    cost -- cross-entropy cost given equation (13)
+    """
+    
+    m = Y.shape[1] # number of example
+
+    # Compute the cross-entropy cost
+     ### START CODE HERE ### (≈ 2 lines of code)
+    logprobs = Y*np.log(A2) + (1-Y)* np.log(1-A2)
+    cost = -1/m * np.sum(logprobs)
+    ### END CODE HERE ###
+    
+    cost = np.squeeze(cost)     # makes sure cost is the dimension we expect. 
+                                # E.g., turns [[17]] into 17 
+    assert(isinstance(cost, float))
+    
+    return cost
+
+A2, Y_assess, parameters = compute_cost_test_case()
+
+print("cost = " + str(compute_cost(A2, Y_assess, parameters)))
+```
+
+output：
+
+```PYTHON
+cost = 0.6929198937761265
+```
+
+现在，通过使用在正向传播期间计算的缓存，你可以实现后向传播。
+
+**问题**：实现函数`backward_propagation（）`。
+
+**说明**：
+反向传播通常是深度学习中最难（最数学）的部分。为了帮助你更好地了解，我们提供了反向传播课程的幻灯片。你将要使用此幻灯片右侧的六个方程式以构建向量化实现。
+
+这些都是通过合理运用导数和链式法则来计算。
+
+![Image Name](https://cdn.kesci.com/upload/image/q17hcd4yra.png?imageView2/0/w/960/h/960)
+
+- ∗ 表示元素乘法（由链式法则得来）。
+- 深度学习中很常见的编码表示方法：
+  - dW1 =![image-20240528205543061](images/image-20240528205543061.png)
+  - db1 = ![image-20240528205547650](images/image-20240528205547650.png)
+  - dW2 = ![image-20240528205551000](images/image-20240528205551000.png)
+  - db2 = ![image-20240528205554231](images/image-20240528205554231.png)
+- 提示：
+    -要计算dZ1，你首先需要计算![image-20240528205602032](images/image-20240528205602032.png)。由于![image-20240528205607729](images/image-20240528205607729.png)是tanh激活函数，因此如果![image-20240528205616540](images/image-20240528205616540.png)𝑧) 则![image-20240528205622711](images/image-20240528205622711.png)。所以你可以使用`(1 - np.power(A1, 2))`计算![image-20240528205632961](images/image-20240528205632961.png)。
+
+```python
+# GRADED FUNCTION: backward_propagation
+
+def backward_propagation(parameters, cache, X, Y):
+    """
+    Implement the backward propagation using the instructions above.
+    
+    Arguments:
+    parameters -- python dictionary containing our parameters 
+    cache -- a dictionary containing "Z1", "A1", "Z2" and "A2".
+    X -- input data of shape (2, number of examples)
+    Y -- "true" labels vector of shape (1, number of examples)
+    
+    Returns:
+    grads -- python dictionary containing your gradients with respect to different parameters
+    """
+    m = X.shape[1]
+    
+    # First, retrieve W1 and W2 from the dictionary "parameters".
+    ### START CODE HERE ### (≈ 2 lines of code)
+    W1 = parameters["W1"]
+    W2 = parameters["W2"]
+    ### END CODE HERE ###
+        
+    # Retrieve also A1 and A2 from dictionary "cache".
+    ### START CODE HERE ### (≈ 2 lines of code)
+    A1 = cache["A1"]
+    A2 = cache["A2"]
+    ### END CODE HERE ###
+    
+    # Backward propagation: calculate dW1, db1, dW2, db2. 
+    ### START CODE HERE ### (≈ 6 lines of code, corresponding to 6 equations on slide above)
+    dZ2= A2 - Y
+    dW2 = 1 / m * np.dot(dZ2,A1.T)
+    db2 = 1 / m * np.sum(dZ2,axis=1,keepdims=True)
+    dZ1 = np.dot(W2.T,dZ2) * (1-np.power(A1,2))
+    dW1 = 1 / m * np.dot(dZ1,X.T)
+    db1 = 1 / m * np.sum(dZ1,axis=1,keepdims=True)
+    ### END CODE HERE ###
+    
+    grads = {"dW1": dW1,
+             "db1": db1,
+             "dW2": dW2,
+             "db2": db2}
+    
+    return grads
+
+parameters, cache, X_assess, Y_assess = backward_propagation_test_case()
+
+grads = backward_propagation(parameters, cache, X_assess, Y_assess)
+print ("dW1 = "+ str(grads["dW1"]))
+print ("db1 = "+ str(grads["db1"]))
+print ("dW2 = "+ str(grads["dW2"]))
+print ("db2 = "+ str(grads["db2"]))
+```
+
+output：
+
+```PYTHON
+dW1 = [[ 0.01018708 -0.00708701]
+ [ 0.00873447 -0.0060768 ]
+ [-0.00530847  0.00369379]
+ [-0.02206365  0.01535126]]
+db1 = [[-0.00069728]
+ [-0.00060606]
+ [ 0.000364  ]
+ [ 0.00151207]]
+dW2 = [[ 0.00363613  0.03153604  0.01162914 -0.01318316]]
+db2 = [[0.06589489]]
+```
+
+**问题**：实现参数更新。 使用梯度下降，你必须使用（dW1，db1，dW2，db2）才能更新（W1，b1，W2，b2）。
+
+**一般的梯度下降规则**：![image-20240528205907166](images/image-20240528205907166.png)其中𝛼是学习率，而𝜃 代表一个参数。
+
+**图示**：具有良好的学习速率（收敛）和较差的学习速率（发散）的梯度下降算法。 图片由Adam Harley提供。
+
+![Image Name](https://cdn.kesci.com/upload/image/q17hh4otzu.gif?imageView2/0/w/960/h/960)
+
+![Image Name](https://cdn.kesci.com/upload/image/q17hharbth.gif?imageView2/0/w/960/h/960)
+
+```python
+# GRADED FUNCTION: update_parameters
+
+def update_parameters(parameters, grads, learning_rate = 1.2):
+    """
+    Updates parameters using the gradient descent update rule given above
+    
+    Arguments:
+    parameters -- python dictionary containing your parameters 
+    grads -- python dictionary containing your gradients 
+    
+    Returns:
+    parameters -- python dictionary containing your updated parameters 
+    """
+    # Retrieve each parameter from the dictionary "parameters"
+    ### START CODE HERE ### (≈ 4 lines of code)
+    W1 = parameters["W1"]
+    b1 = parameters["b1"]
+    W2 = parameters["W2"]
+    b2 = parameters["b2"]
+    ### END CODE HERE ###
+    
+    # Retrieve each gradient from the dictionary "grads"
+    ### START CODE HERE ### (≈ 4 lines of code)
+    dW1 = grads["dW1"]
+    db1 = grads["db1"]
+    dW2 = grads["dW2"]
+    db2 = grads["db2"]
+    ## END CODE HERE ###
+    
+    # Update rule for each parameter
+    ### START CODE HERE ### (≈ 4 lines of code)
+    W1 = W1 - learning_rate * dW1
+    b1 = b1 - learning_rate * db1
+    W2 = W2 - learning_rate * dW2
+    b2 = b2 - learning_rate * db2
+    ### END CODE HERE ###
+    
+    parameters = {"W1": W1,
+                  "b1": b1,
+                  "W2": W2,
+                  "b2": b2}
+    
+    return parameters
+
+parameters, grads = update_parameters_test_case()
+parameters = update_parameters(parameters, grads)
+
+print("W1 = " + str(parameters["W1"]))
+print("b1 = " + str(parameters["b1"]))
+print("W2 = " + str(parameters["W2"]))
+print("b2 = " + str(parameters["b2"]))
+```
+
+output：
+
+```PYTHON
+W1 = [[-0.00643025  0.01936718]
+ [-0.02410458  0.03978052]
+ [-0.01653973 -0.02096177]
+ [ 0.01046864 -0.05990141]]
+b1 = [[-1.02420756e-06]
+ [ 1.27373948e-05]
+ [ 8.32996807e-07]
+ [-3.20136836e-06]]
+W2 = [[-0.01041081 -0.04463285  0.01758031  0.04747113]]
+b2 = [[0.00010457]]
+```
+
+### 4.4nn_model()集成
+
+```python
+# GRADED FUNCTION: nn_model
+
+def nn_model(X, Y, n_h, num_iterations = 10000, print_cost=False):
+    """
+    Arguments:
+    X -- dataset of shape (2, number of examples)
+    Y -- labels of shape (1, number of examples)
+    n_h -- size of the hidden layer
+    num_iterations -- Number of iterations in gradient descent loop
+    print_cost -- if True, print the cost every 1000 iterations
+    
+    Returns:
+    parameters -- parameters learnt by the model. They can then be used to predict.
+    """
+    
+    np.random.seed(3)
+    n_x = layer_sizes(X, Y)[0]
+    n_y = layer_sizes(X, Y)[2]
+    
+    # Initialize parameters, then retrieve W1, b1, W2, b2. Inputs: "n_x, n_h, n_y". Outputs = "W1, b1, W2, b2, parameters".
+    ### START CODE HERE ### (≈ 5 lines of code)
+    parameters = initialize_parameters(n_x, n_h, n_y)
+    W1 = parameters["W1"]
+    b1 = parameters["b1"]
+    W2 = parameters["W2"]
+    b2 = parameters["b2"]
+    ### END CODE HERE ###
+    
+    # Loop (gradient descent)
+
+    for i in range(0, num_iterations):
+         
+        ### START CODE HERE ### (≈ 4 lines of code)
+        # Forward propagation. Inputs: "X, parameters". Outputs: "A2, cache".
+        A2, cache = forward_propagation(X, parameters)
+        
+        # Cost function. Inputs: "A2, Y, parameters". Outputs: "cost".
+        cost = compute_cost(A2, Y, parameters)
+ 
+        # Backpropagation. Inputs: "parameters, cache, X, Y". Outputs: "grads".
+        grads = backward_propagation(parameters, cache, X, Y)
+ 
+        # Gradient descent parameter update. Inputs: "parameters, grads". Outputs: "parameters".
+        parameters = update_parameters(parameters, grads)
+        
+        ### END CODE HERE ###
+        
+        # Print the cost every 1000 iterations
+        if print_cost and i % 1000 == 0:
+            print ("Cost after iteration %i: %f" %(i, cost))
+
+    return parameters
+
+X_assess, Y_assess = nn_model_test_case()
+
+parameters = nn_model(X_assess, Y_assess, 4, num_iterations=10000, print_cost=False)
+print("W1 = " + str(parameters["W1"]))
+print("b1 = " + str(parameters["b1"]))
+print("W2 = " + str(parameters["W2"]))
+print("b2 = " + str(parameters["b2"]))
+```
+
+output：
+
+```PYTHON
+W1 = [[-4.18503197  5.33214315]
+ [-7.52988635  1.24306559]
+ [-4.19302427  5.32627154]
+ [ 7.52984762 -1.24308746]]
+b1 = [[ 2.32926944]
+ [ 3.79460252]
+ [ 2.33002498]
+ [-3.79466751]]
+W2 = [[-6033.83668723 -6008.12983227 -6033.10091631  6008.06624417]]
+b2 = [[-52.66610924]]
+```
+
+### 4.5- 预测[¶](https://www.heywhale.com/api/notebooks/5e85d6bf95b029002ca7e7e6/RenderedContent?cellcomment=1&cellbookmark=1#4.5--预测)
+
+**问题**：使用你的模型通过构建predict()函数进行预测。
+使用正向传播来预测结果。
+
+**提示**： 
+$$
+y_{prediction} = \mathbb 1 \text{{activation > 0.5}} = \begin{cases}  
+      1 & \text{if}\ activation > 0.5 \\  
+      0 & \text{otherwise}  
+    \end{cases}
+$$
+
+例如，如果你想基于阈值将矩阵X设为0和1，则可以执行以下操作： `X_new = (X > threshold)`
+
+```python
+# GRADED FUNCTION: predict
+
+def predict(parameters, X):
+    """
+    Using the learned parameters, predicts a class for each example in X
+    
+    Arguments:
+    parameters -- python dictionary containing your parameters 
+    X -- input data of size (n_x, m)
+    
+    Returns
+    predictions -- vector of predictions of our model (red: 0 / blue: 1)
+    """
+    
+    # Computes probabilities using forward propagation, and classifies to 0/1 using 0.5 as the threshold.
+  ### START CODE HERE ### (≈ 2 lines of code)
+    A2, cache = forward_propagation(X, parameters)
+    predictions = np.round(A2)#此函数的作用是将输入数组中的元素四舍五入到最接近的整数或指定的小数位数。
+    ### END CODE HERE ###
+    
+    return predictions
+
+
+parameters, X_assess = predict_test_case()
+
+predictions = predict(parameters, X_assess)
+print("predictions mean = " + str(np.mean(predictions)))#计算 predictions 数组中所有元素的平均值，即各个特征所给出的预测值的平均值。
+```
+
+output：
+
+```PYTHON
+predictions mean = 0.6666666666666666
+```
+
+现在运行模型以查看其如何在二维数据集上运行。 运行以下代码以使用含有![image-20240528211628033](images/image-20240528211628033.png)隐藏单元的单个隐藏层测试模型。
+
+```python
+# Build a model with a n_h-dimensional hidden layer
+parameters = nn_model(X, Y, n_h = 4, num_iterations = 10000, print_cost=True)
+
+# Plot the decision boundary
+plot_decision_boundary(lambda x: predict(parameters, x.T), X, Y)#绘制决策边界
+plt.title("Decision Boundary for hidden layer size " + str(4))
+```
+
+output：
+
+```python
+Cost after iteration 0: 0.693048
+Cost after iteration 1000: 0.288083
+Cost after iteration 2000: 0.254385
+Cost after iteration 3000: 0.233864
+Cost after iteration 4000: 0.226792
+Cost after iteration 5000: 0.222644
+Cost after iteration 6000: 0.219731
+Cost after iteration 7000: 0.217504
+Cost after iteration 8000: 0.219467
+Cost after iteration 9000: 0.218561
+```
+
+![image-20240528211828808](images/image-20240528211828808.png)
+
+```python
+# Print accuracy
+predictions = predict(parameters, X)
+print ('Accuracy: %d' % float((np.dot(Y,predictions.T) + np.dot(1-Y,1-predictions.T))/float(Y.size)*100) + '%')
+```
+
+output：
+
+```python
+Accuracy: 90%
+```
+
+#### lambda函数
+
+- **Lambda函数**，也称为**匿名函数**，是Python中一种简洁的函数形式。它允许您在需要函数作为参数或返回值的地方快速定义一个简短的函数。下面让我详细解释一下：
+
+  1. **Lambda函数的语法**：
+
+     - Lambda函数的语法只包含一个表达式，形式如下：
+
+       ```
+       lambda [arg1 [, arg2, ...]]: expression
+       ```
+
+       
+
+     - 其中，`lambda` 是Python的关键字，`[arg...]` 和 `expression` 由用户自定义。
+
+  2. **Lambda函数的特点**：
+
+     - **匿名性**：Lambda函数没有名字，通常用于简单的操作。
+     - **输入和输出**：输入是传入到参数列表的值，输出是根据表达式计算得到的值。
+     - **命名空间**：Lambda函数拥有自己的命名空间，不能访问参数列表之外或全局命名空间中的参数。
+
+  3. **常见的Lambda函数示例**：
+
+     - `lambda x, y: x * y`：输入是x和y，输出是它们的积。
+     - `lambda: None`：没有输入参数，输出是None。
+     - `lambda *args: sum(args)`：输入是任意个数的参数，输出是它们的和。
+     - `lambda **kwargs: 1`：输入是任意键值对参数，输出是1。
+
+### 4.6- 调整隐藏层大小
+
+```python
+# This may take about 2 minutes to run
+
+plt.figure(figsize=(16, 32))
+hidden_layer_sizes = [1, 2, 3, 4, 5, 10, 20]
+for i, n_h in enumerate(hidden_layer_sizes):#enumerate(hidden_layer_sizes) 创建了一个可迭代的对象，它会返回一个 (index, value) 的元组。
+#在每次迭代中，i 是索引，n_h 是对应的隐藏层大小。
+    plt.subplot(5, 2, i+1)
+    plt.title('Hidden Layer of size %d' % n_h)
+    parameters = nn_model(X, Y, n_h, num_iterations = 5000)
+    plot_decision_boundary(lambda x: predict(parameters, x.T), X, Y)
+    predictions = predict(parameters, X)
+    accuracy = float((np.dot(Y,predictions.T) + np.dot(1-Y,1-predictions.T))/float(Y.size)*100)
+    print ("Accuracy for {} hidden units: {} %".format(n_h, accuracy))
+```
+
+output：
+
+```python
+Accuracy for 1 hidden units: 67.5 %
+Accuracy for 2 hidden units: 67.25 %
+Accuracy for 3 hidden units: 90.75 %
+Accuracy for 4 hidden units: 90.5 %
+Accuracy for 5 hidden units: 91.25 %
+Accuracy for 10 hidden units: 90.25 %
+Accuracy for 20 hidden units: 90.5 %
+```
+
+![image-20240528213230431](images/image-20240528213230431.png)
+
+![image-20240528213240650](images/image-20240528213240650.png)![image-20240528213247686](images/image-20240528213247686.png)
+
+**说明**：
+
+- 较大的模型（具有更多隐藏的单元）能够更好地拟合训练集，直到最终最大的模型过拟合数据为止。
+- 隐藏层的最佳大小似乎在n_h = 5左右。的确，此值似乎很好地拟合了数据，而又不会引起明显的过度拟合。
+- 稍后你还将学习正则化，帮助构建更大的模型（例如n_h = 50）而不会过度拟合。
+
