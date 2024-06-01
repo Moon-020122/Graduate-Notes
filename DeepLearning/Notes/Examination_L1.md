@@ -1732,3 +1732,472 @@ Accuracy for 20 hidden units: 90.5 %
 - 隐藏层的最佳大小似乎在n_h = 5左右。的确，此值似乎很好地拟合了数据，而又不会引起明显的过度拟合。
 - 稍后你还将学习正则化，帮助构建更大的模型（例如n_h = 50）而不会过度拟合。
 
+# 深度神经网络
+
+- 在此作业中，你将实现构建深度神经网络所需的所有函数。
+
+**完成此任务后，你将能够：**
+
+- 使用ReLU等非线性单位来改善模型
+- 建立更深的神经网络（具有1个以上的隐藏层）
+- 实现一个易于使用的神经网络类
+
+## 符号说明
+
+**符号说明**：
+
+- 上标[𝑙] 表示与![image-20240601104701164](images/image-20240601104701164.png)层相关的数量。
+    \- 示例：![image-20240601104706889](images/image-20240601104706889.png)是![image-20240601104712654](images/image-20240601104712654.png)层的激活。![image-20240601104720503](images/image-20240601104720503.png)和![image-20240601104725684](images/image-20240601104725684.png)是![image-20240601104715769](images/image-20240601104715769.png)层参数。
+- 上标(𝑖) 表示与![image-20240601104733097](images/image-20240601104733097.png)示例相关的数量。
+    \- 示例：![image-20240601104738064](images/image-20240601104738064.png)是第![image-20240601104742332](images/image-20240601104742332.png) 的训练数据。
+- 下标𝑖 表示![image-20240601104747965](images/image-20240601104747965.png)的向量。
+    \- 示例：![image-20240601104805504](images/image-20240601104805504.png) 表示![image-20240601104810415](images/image-20240601104810415.png)层激活的![image-20240601104814768](images/image-20240601104814768.png) 输入。
+
+## 1-安装包
+
+```PYTHON
+import numpy as np
+import h5py
+import matplotlib.pyplot as plt
+from lib.testCases_v2 import *
+from lib.dnn_utils_v2 import sigmoid, sigmoid_backward, relu, relu_backward
+
+plt.rcParams['figure.figsize'] = (5.0, 4.0) # set default size of plots
+plt.rcParams['image.interpolation'] = 'nearest'
+plt.rcParams['image.cmap'] = 'gray'
+
+
+np.random.seed(1)
+```
+
+- 初始化两层的网络和𝐿层的神经网络的参数。
+- 实现正向传播模块（在下图中以紫色显示）。
+     \- 完成模型正向传播步骤的LINEAR部分（![image-20240601110505018](images/image-20240601110505018.png)）。
+     \- 提供使用的ACTIVATION函数（relu / Sigmoid）。
+     \- 将前两个步骤合并为新的[LINEAR-> ACTIVATION]前向函数。
+     \- 堆叠[LINEAR-> RELU]正向函数L-1次（第1到L-1层），并在末尾添加[LINEAR-> SIGMOID]（最后的𝐿层)。这合成了一个新的L_model_forward函数。
+- 计算损失。
+- 实现反向传播模块（在下图中以红色表示）。
+    \- 完成模型反向传播步骤的LINEAR部分。
+    \- 提供的ACTIVATE函数的梯度（relu_backward / sigmoid_backward）
+    \- 将前两个步骤组合成新的[LINEAR-> ACTIVATION]反向函数。
+    \- 将[LINEAR-> RELU]向后堆叠L-1次，并在新的L_model_backward函数中后向添加[LINEAR-> SIGMOID]
+- 最后更新参数。
+
+![image-20240601110810268](images/image-20240601110810268.png)
+
+**注意**：对于每个正向函数，都有一个对应的反向函数。 这也是为什么在正向传播模块的每一步都将一些值存储在缓存中的原因。缓存的值可用于计算梯度。 然后，在反向传导模块中，你将使用缓存的值来计算梯度。 此作业将指导说明如何执行这些步骤。
+
+## 2-初始化
+
+​	首先编写两个辅助函数用来初始化模型的参数。 第一个函数将用于初始化两层模型的参数。 第二个将把初始化过程推广到𝐿层模型上。
+
+### 2.1-两层神经网络
+
+创建并初始化2层神经网络的参数。
+
+**说明**：
+
+- 模型的结构为：*LINEAR -> RELU -> LINEAR -> SIGMOID*。
+- 随机初始化权重矩阵。 确保准确的维度，使用`np.random.randn（shape）* 0.01`。
+- 将偏差初始化为0。 使用`np.zeros（shape）`。
+
+```python
+# GRADED FUNCTION: initialize_parameters
+
+def initialize_parameters(n_x, n_h, n_y):
+    """
+    Argument:
+    n_x -- size of the input layer
+    n_h -- size of the hidden layer
+    n_y -- size of the output layer
+    
+    Returns:
+    parameters -- python dictionary containing your parameters:
+                    W1 -- weight matrix of shape (n_h, n_x)
+                    b1 -- bias vector of shape (n_h, 1)
+                    W2 -- weight matrix of shape (n_y, n_h)
+                    b2 -- bias vector of shape (n_y, 1)
+    """
+    
+    np.random.seed(1)
+    
+### START CODE HERE ### (≈ 4 lines of code)
+#np.random.randn()函数用于生成一个符合标准正态分布（均值为0，方差为1）的随机样本数组。这里的randn函数后面的参数n_h和n_x指定了数组的形状，即生成一个n_h行n_x列的二维数组。
+    W1 = np.random.randn(n_h, n_x)*0.01
+    b1 = np.zeros((n_h,1))
+    W2 = np.random.randn(n_y, n_h)*0.01
+    b2 = np.zeros((n_y,1))
+    ### END CODE HERE ###
+    
+    
+    assert(W1.shape == (n_h, n_x))
+    assert(b1.shape == (n_h, 1))
+    assert(W2.shape == (n_y, n_h))
+    assert(b2.shape == (n_y, 1))
+    
+    parameters = {"W1": W1,
+                  "b1": b1,
+                  "W2": W2,
+                  "b2": b2}
+    
+    return parameters    
+parameters = initialize_parameters(2,2,1)
+print("W1 = " + str(parameters["W1"]))
+print("b1 = " + str(parameters["b1"]))
+print("W2 = " + str(parameters["W2"]))
+print("b2 = " + str(parameters["b2"]))
+```
+
+output：
+
+```PYTHON
+W1 = [[ 0.01624345 -0.00611756]
+ [-0.00528172 -0.01072969]]
+b1 = [[0.]
+ [0.]]
+W2 = [[ 0.00865408 -0.02301539]]
+b2 = [[0.]]
+```
+
+### 2.2-L层神经网络
+
+对于L层深度神经网络的初始化因为存在更多的权重矩阵和偏差向量。 完成 `initialize_parameters_deep`后，应确保各层之间的维度匹配。 ![image-20240601112143301](images/image-20240601112143301.png)是𝑙层中的神经元数量。 因此，如果我们输入的 𝑋 的大小为(12288,209)（以𝑚=209为例)，则：
+
+![image-20240601112456025](images/image-20240601112456025.png)
+
+当我们在python中计算𝑊𝑋+𝑏时，使用广播，比如：
+$$
+W = \begin{bmatrix}      j  & k  & l\\      m  & n & o \\      p  & q & r     \end{bmatrix}\;\;\; X = \begin{bmatrix}      a  & b  & c\\      d  & e & f \\      g  & h & i    \end{bmatrix} \;\;\; b =\begin{bmatrix}      s  \\      t  \\      u   \end{bmatrix}\tag{2}
+$$
+Then 𝑊𝑋+𝑏 will be:
+$$
+WX + b = \begin{bmatrix}      (ja + kd + lg) + s  & (jb + ke + lh) + s  & (jc + kf + li)+ s\\      (ma + nd + og) + t & (mb + ne + oh) + t & (mc + nf + oi) + t\\      (pa + qd + rg) + u & (pb + qe + rh) + u & (pc + qf + ri)+ u   \end{bmatrix}\tag{3}
+$$
+**练习**：实现L层神经网络的初始化。
+
+**说明**：
+
+- 模型的结构为 *[LINEAR -> RELU] × (L-1) -> LINEAR -> SIGMOID*。也就是说，𝐿−1层使用ReLU作为激活函数，最后一层采用sigmoid激活函数输出。
+
+- 随机初始化权重矩阵。使用`np.random.rand（shape）* 0.01`。
+
+- 零初始化偏差。使用`np.zeros（shape）`。
+
+- 我们将在不同的layer_dims变量中存储𝑛[𝑙]，即不同层中的神经元数。例如，上周“二维数据分类模型”的`layer_dims`为[2,4,1]：即有两个输入，一个隐藏层包含4个隐藏单元，一个输出层包含1个输出单元。因此，`W1`的维度为（4,2），`b1`的维度为（4,1），`W2`的维度为（1,4），而`b2`的维度为（1,1）。现在你将把它应用到𝐿层！
+
+- 这是
+
+  𝐿=1（一层神经网络）的实现。以启发你如何实现通用的神经网络（L层神经网络）。
+
+  ```python
+  if L == 1:  
+        parameters["W" + str(L)] = np.random.randn(layer_dims[1], layer_dims[0]) * 0.01  
+        parameters["b" + str(L)] = np.zeros((layer_dims[1], 1))
+  ```
+
+```PYTHON
+# GRADED FUNCTION: initialize_parameters_deep
+
+def initialize_parameters_deep(layer_dims):
+    """
+    Arguments:
+    layer_dims -- python array (list) containing the dimensions of each layer in our network
+    
+    Returns:
+    parameters -- python dictionary containing your parameters "W1", "b1", ..., "WL", "bL":
+                    Wl -- weight matrix of shape (layer_dims[l], layer_dims[l-1])
+                    bl -- bias vector of shape (layer_dims[l], 1)
+    """
+    
+    np.random.seed(3)
+    parameters = {}
+    L = len(layer_dims)            # number of layers in the network
+
+    for l in range(1, L):
+        ### START CODE HERE ### (≈ 2 lines of code)
+        parameters['W' + str(l)] = np.random.randn(layer_dims[l],layer_dims[l-1])*0.01
+        parameters['b' + str(l)] = np.zeros((layer_dims[l],1))
+        ### END CODE HERE ###
+        
+        assert(parameters['W' + str(l)].shape == (layer_dims[l], layer_dims[l-1]))
+        assert(parameters['b' + str(l)].shape == (layer_dims[l], 1))
+
+        
+    return parameters
+parameters = initialize_parameters_deep([5,4,3])
+print("W1 = " + str(parameters["W1"]))
+print("b1 = " + str(parameters["b1"]))
+print("W2 = " + str(parameters["W2"]))
+print("b2 = " + str(parameters["b2"]))
+```
+
+output:
+
+```PYTHON
+W1 = [[ 0.01788628  0.0043651   0.00096497 -0.01863493 -0.00277388]
+ [-0.00354759 -0.00082741 -0.00627001 -0.00043818 -0.00477218]
+ [-0.01313865  0.00884622  0.00881318  0.01709573  0.00050034]
+ [-0.00404677 -0.0054536  -0.01546477  0.00982367 -0.01101068]]
+b1 = [[0.]
+ [0.]
+ [0.]
+ [0.]]
+W2 = [[-0.01185047 -0.0020565   0.01486148  0.00236716]
+ [-0.01023785 -0.00712993  0.00625245 -0.00160513]
+ [-0.00768836 -0.00230031  0.00745056  0.01976111]]
+b2 = [[0.]
+ [0.]
+ [0.]]
+```
+
+## 3-正向传播模块
+
+### 3.1-线性正向
+
+接下来将执行正向传播模块。 首先实现一些基本函数，用于稍后的模型实现。按以下顺序完成三个函数：
+
+- LINEAR
+- LINEAR -> ACTIVATION，其中激活函数采用ReLU或Sigmoid。
+- [LINEAR -> RELU] × (L-1) -> LINEAR -> SIGMOID（整个模型）
+
+线性正向模块（在所有数据中均进行向量化）的计算按照以下公式：
+$$
+Z^{[l]} = W^{[l]}A^{[l-1]} +b^{[l]}\tag{4}
+$$
+其中![image-20240601114525732](images/image-20240601114525732.png)
+
+该单元的数学表示为 ![image-20240601114550590](images/image-20240601114550590.png)，你可能会发现`np.dot（）`有用。 如果维度不匹配，则可以print（`W.shape`)查看修改。
+
+```PYTHON
+# GRADED FUNCTION: linear_forward
+
+def linear_forward(A, W, b):
+    """
+    Implement the linear part of a layer's forward propagation.
+
+    Arguments:
+    A -- activations from previous layer (or input data): (size of previous layer, number of examples)
+    W -- weights matrix: numpy array of shape (size of current layer, size of previous layer)
+    b -- bias vector, numpy array of shape (size of the current layer, 1)
+
+    Returns:
+    Z -- the input of the activation function, also called pre-activation parameter 
+    cache -- a python dictionary containing "A", "W" and "b" ; stored for computing the backward pass efficiently
+    """
+    
+    ### START CODE HERE ### (≈ 1 line of code)
+    Z = np.dot(W,A) + b
+    ### END CODE HERE ###
+    
+    assert(Z.shape == (W.shape[0], A.shape[1]))
+    cache = (A, W, b)
+    
+    return Z, cache
+
+A, W, b = linear_forward_test_case()
+
+Z, linear_cache = linear_forward(A, W, b)
+print("Z = " + str(Z))
+```
+
+output：
+
+```PYTHON
+Z = [[ 3.26295337 -1.23429987]]
+```
+
+### 3.2-正向线性激活
+
+使用两个激活函数：
+
+**Sigmoid**：![image-20240601115454788](images/image-20240601115454788.png) 。 该函数返回**两项值**：激活值"`a`"和包含"`Z`"的"`cache`"（这是我们将馈入到相应的反向函数的内容)。 
+
+```python
+A, activation_cache = sigmoid(Z)
+```
+
+**ReLU**：ReLu的数学公式为![image-20240601115539959](images/image-20240601115539959.png)。我们为你提供了`relu`函数。 该函数返回**两项值**：激活值“`A`”和包含“`Z`”的“`cache`”（这是我们将馈入到相应的反向函数的内容)。 你可以按下述方式得到两项值：
+
+```python
+A, activation_cache = relu(Z)
+```
+
+为了更加方便，我们把两个函数（线性和激活）组合为一个函数（LINEAR-> ACTIVATION）。 因此，我们将实现一个函数用以执行LINEAR正向步骤和ACTIVATION正向步骤。
+
+**练习**：实现 *LINEAR->ACTIVATION* 层的正向传播。 数学表达式为：![image-20240601115658695](images/image-20240601115658695.png)，其中激活"g" 可以是sigmoid（）或relu（）。 使用linear_forward（)和正确的激活函数。
+
+```python
+# GRADED FUNCTION: linear_activation_forward
+
+def linear_activation_forward(A_prev, W, b, activation):
+    """
+    Implement the forward propagation for the LINEAR->ACTIVATION layer
+
+    Arguments:
+    A_prev -- activations from previous layer (or input data): (size of previous layer, number of examples)
+    W -- weights matrix: numpy array of shape (size of current layer, size of previous layer)
+    b -- bias vector, numpy array of shape (size of the current layer, 1)
+    activation -- the activation to be used in this layer, stored as a text string: "sigmoid" or "relu"
+
+    Returns:
+    A -- the output of the activation function, also called the post-activation value 
+    cache -- a python dictionary containing "linear_cache" and "activation_cache";
+             stored for computing the backward pass efficiently
+    """
+    
+    if activation == "sigmoid":
+        # Inputs: "A_prev, W, b". Outputs: "A, activation_cache".
+        ### START CODE HERE ### (≈ 2 lines of code)
+        Z, linear_cache = linear_forward(A_prev,W,b)
+        A, activation_cache = sigmoid(Z)
+        ### END CODE HERE ###
+    
+    elif activation == "relu":
+        # Inputs: "A_prev, W, b". Outputs: "A, activation_cache".
+        ### START CODE HERE ### (≈ 2 lines of code)
+        Z, linear_cache = linear_forward(A_prev,W,b)
+        A, activation_cache = relu(Z)
+        ### END CODE HERE ###
+    
+    assert (A.shape == (W.shape[0], A_prev.shape[1]))
+    cache = (linear_cache, activation_cache)
+
+    return A, cache
+
+A_prev, W, b = linear_activation_forward_test_case()
+
+A, linear_activation_cache = linear_activation_forward(A_prev, W, b, activation = "sigmoid")
+print("With sigmoid: A = " + str(A))
+
+A, linear_activation_cache = linear_activation_forward(A_prev, W, b, activation = "relu")
+print("With ReLU: A = " + str(A))
+```
+
+output：
+
+```PYTHON
+With sigmoid: A = [[0.96890023 0.11013289]]
+With ReLU: A = [[3.43896131 0.        ]]
+```
+
+### 3.3-L层模型
+
+为了方便实现𝐿层神经网络，你将需要一个函数来复制前一个函数（使用RELU的`linear_activation_forward`）𝐿−1次，以及复制带有SIGMOID的`linear_activation_forward`。
+
+*[LINEAR -> RELU] × (L-1) -> LINEAR -> SIGMOID* 模型
+
+![image-20240601120522108](images/image-20240601120522108.png)
+
+**说明**：在下面的代码中，变量`AL`表示![image-20240601120801407](images/image-20240601120801407.png)（有时也称为`Yhat`，即𝑌^。)
+
+**提示**：
+
+- 使用你先前编写的函数
+- 使用for循环复制[LINEAR-> RELU]（L-1）次
+- 不要忘记在“cache”列表中更新缓存。 要将新值 `c`添加到`list`中，可以使用`list.append(c)`。
+
+```python
+# GRADED FUNCTION: L_model_forward
+
+def L_model_forward(X, parameters):
+    """
+    Implement forward propagation for the [LINEAR->RELU]*(L-1)->LINEAR->SIGMOID computation
+    
+    Arguments:
+    X -- data, numpy array of shape (input size, number of examples)
+    parameters -- output of initialize_parameters_deep()
+    
+    Returns:
+    AL -- last post-activation value
+    caches -- list of caches containing:
+                every cache of linear_relu_forward() (there are L-1 of them, indexed from 0 to L-2)
+                the cache of linear_sigmoid_forward() (there is one, indexed L-1)
+    """
+
+    caches = []
+    A = X
+    L = len(parameters) // 2                  # number of layers in the neural network
+    
+    # Implement [LINEAR -> RELU]*(L-1). Add "cache" to the "caches" list.
+    #这行代码会执行 L-1 次循环，包括1不包括L。
+    for l in range(1, L):
+        A_prev = A 
+         ### START CODE HERE ### (≈ 2 lines of code)
+        A, cache = linear_activation_forward(A_prev,parameters['W' + str(l)],parameters['b' + str(l)],activation = "relu")
+        caches.append(cache)
+        ### END CODE HERE ###
+    
+    # Implement LINEAR -> SIGMOID. Add "cache" to the "caches" list.
+    ### START CODE HERE ### (≈ 2 lines of code)
+    #最后一层激活函数使用sigmoid函数。
+    #此处传入的A是上一层的输出。
+    AL, cache = linear_activation_forward(A,parameters['W' + str(L)],parameters['b' + str(L)],activation = "sigmoid")
+    caches.append(cache)
+    ### END CODE HERE ###
+    
+    assert(AL.shape == (1,X.shape[1]))
+            
+    return AL, caches
+
+X, parameters = L_model_forward_test_case()
+AL, caches = L_model_forward(X, parameters)
+print("AL = " + str(AL))
+print("Length of caches list = " + str(len(caches)))
+```
+
+output：
+
+```python
+AL = [[0.17007265 0.2524272 ]]
+Length of caches list = 2
+```
+
+## 4-损失函数
+
+计算损失，以检查模型是否在学习。
+
+**练习**：使用以下公式计算交叉熵损失𝐽：
+$$
+-\frac{1}{m} \sum\limits_{i = 1}^{m} (y^{(i)}\log\left(a^{[L] (i)}\right) + (1-y^{(i)})\log\left(1- a^{[L](i)}\right)) \tag{7}
+$$
+
+```python
+# GRADED FUNCTION: compute_cost
+
+def compute_cost(AL, Y):
+    """
+    Implement the cost function defined by equation (7).
+
+    Arguments:
+    AL -- probability vector corresponding to your label predictions, shape (1, number of examples)
+    Y -- true "label" vector (for example: containing 0 if non-cat, 1 if cat), shape (1, number of examples)
+
+    Returns:
+    cost -- cross-entropy cost
+    """
+    
+    m = Y.shape[1]
+
+    # Compute loss from aL and y.
+    ### START CODE HERE ### (≈ 1 lines of code)
+    #每一行代表一个样本，每一列代表一个类别的预测概率。对行求和的目的是为了计算每个样本的损失，然后将这些损失加起来得到整个批量的总损失。
+    #因此此处是axis为1，表示对行求和，即计算每个样本的损失，其cost也是一个矩阵。
+    cost = -1 / m * np.sum(Y * np.log(AL) + (1-Y) * np.log(1-AL),axis=1,keepdims=True)
+    #cost是一个列向量
+    ### END CODE HERE ###
+    
+    cost = np.squeeze(cost)      # To make sure your cost's shape is what we expect (e.g. this turns [[17]] into 17).
+    assert(cost.shape == ())
+    
+    return cost
+Y, AL = compute_cost_test_case()
+
+print("cost = " + str(compute_cost(AL, Y)))
+```
+
+output：
+
+```PYTHON
+cost = 0.41493159961539694
+```
