@@ -1072,7 +1072,7 @@ $$
 
 通常会构建辅助函数来计算第1-3步，然后将它们合并为`nn_model()`函数。一旦构建了`nn_model()`并学习了正确的参数，就可以对新数据进行预测。
 
-### 4.1 定义神经网络结构
+### 4.1-定义神经网络结构
 
 **练习**：定义三个变量：
    \- n_x：输入层的大小
@@ -1117,7 +1117,7 @@ The size of the hidden layer is: n_h = 4
 The size of the output layer is: n_y = 2
 ```
 
-### 4.2随机初始化参数
+### 4.2-随机初始化参数
 
 ​	如笔记中所说，单隐层神经网络需要随机初始化参数，避免训练无效果。
 
@@ -1195,7 +1195,7 @@ W2 = [[-0.01057952 -0.00909008  0.00551454  0.02292208]]
 b2 = [[0.]]
 ```
 
-### 4.3循环
+### 4.3-循环
 
 **问题**：实现`forward_propagation（）`。
 
@@ -1492,7 +1492,7 @@ W2 = [[-0.01041081 -0.04463285  0.01758031  0.04747113]]
 b2 = [[0.00010457]]
 ```
 
-### 4.4nn_model()集成
+### 4.4-nn_model()集成
 
 ```python
 # GRADED FUNCTION: nn_model
@@ -1572,7 +1572,7 @@ W2 = [[-6033.83668723 -6008.12983227 -6033.10091631  6008.06624417]]
 b2 = [[-52.66610924]]
 ```
 
-### 4.5- 预测[¶](https://www.heywhale.com/api/notebooks/5e85d6bf95b029002ca7e7e6/RenderedContent?cellcomment=1&cellbookmark=1#4.5--预测)
+### 4.5-预测[¶](https://www.heywhale.com/api/notebooks/5e85d6bf95b029002ca7e7e6/RenderedContent?cellcomment=1&cellbookmark=1#4.5--预测)
 
 **问题**：使用你的模型通过构建predict()函数进行预测。
 使用正向传播来预测结果。
@@ -1692,7 +1692,7 @@ Accuracy: 90%
      - `lambda *args: sum(args)`：输入是任意个数的参数，输出是它们的和。
      - `lambda **kwargs: 1`：输入是任意键值对参数，输出是1。
 
-### 4.6- 调整隐藏层大小
+### 4.6-调整隐藏层大小
 
 ```python
 # This may take about 2 minutes to run
@@ -2117,6 +2117,7 @@ def L_model_forward(X, parameters):
 
     caches = []
     A = X
+    #这行代码 L = len(parameters) // 2 表示你正在计算变量 parameters 的长度，然后将其除以2并取整。如果每层有两组参数（例如，权重和偏置）则需要除以2。
     L = len(parameters) // 2                  # number of layers in the neural network
     
     # Implement [LINEAR -> RELU]*(L-1). Add "cache" to the "caches" list.
@@ -2124,13 +2125,15 @@ def L_model_forward(X, parameters):
     for l in range(1, L):
         A_prev = A 
          ### START CODE HERE ### (≈ 2 lines of code)
+         #此处得到的cache包括liner_cache和activation_cache
+        #linear_cache包括A,W,b；activation_cache包括本层的Z
         A, cache = linear_activation_forward(A_prev,parameters['W' + str(l)],parameters['b' + str(l)],activation = "relu")
-        caches.append(cache)
+        caches.append(cache)#列表存储各层的cache
         ### END CODE HERE ###
     
     # Implement LINEAR -> SIGMOID. Add "cache" to the "caches" list.
     ### START CODE HERE ### (≈ 2 lines of code)
-    #最后一层激活函数使用sigmoid函数。
+    #最后一层激活函数使用sigmoid函数，预测结果。
     #此处传入的A是上一层的输出。
     AL, cache = linear_activation_forward(A,parameters['W' + str(L)],parameters['b' + str(L)],activation = "sigmoid")
     caches.append(cache)
@@ -2217,3 +2220,789 @@ cost = 0.41493159961539694
 可以使用微积分的链式规则来得出2层网络中的损失 𝐿相对于 ![image-20240602143142424](images/image-20240602143142424.png)的导数，如下所示：
 
 计算梯度![image-20240602143241171](images/image-20240602143241171.png)计算![image-20240602143302023](images/image-20240602143302023.png)即可；同理计算梯度![image-20240602143312426](images/image-20240602143312426.png)计算![image-20240602143318876](images/image-20240602143318876.png)即可。
+
+现在，类似于正向传播，分三个步骤构建反向传播：
+
+- LINEAR backward
+- LINEAR -> ACTIVATION backward，其中激活函数使用ReLU或sigmoid 的导数计算
+- [LINEAR -> RELU] × (L-1) -> LINEAR -> SIGMOID backward（整个模型）
+
+### 5.1-线性反向
+
+对于层𝑙，线性部分为：![image-20240602143848859](images/image-20240602143848859.png)（之后是激活)。
+
+假设你已经计算出导数![image-20240602143923054](images/image-20240602143923054.png)。 你想获得![image-20240602143930936](images/image-20240602143930936.png)。
+
+![image-20240602144141743](images/image-20240602144141743.png)
+
+使用输入![image-20240602144237909](images/image-20240602144237909.png)计算三个输出![image-20240602144326870](images/image-20240602144326870.png)（A有误，上标应为l-1)
+$$
+dW^{[l]} = \frac{\partial \mathcal{L} }{\partial W^{[l]}} = \frac{1}{m} dZ^{[l]} A^{[l-1] T} \tag{8}
+$$
+
+$$
+db^{[l]} = \frac{\partial \mathcal{L} }{\partial b^{[l]}} = \frac{1}{m} \sum_{i = 1}^{m} dZ^{[l](i)}\tag{9}
+$$
+
+$$
+dA^{[l-1]} = \frac{\partial \mathcal{L} }{\partial A^{[l-1]}} = W^{[l] T} dZ^{[l]} \tag{10}
+$$
+
+```python
+# GRADED FUNCTION: linear_backward
+
+def linear_backward(dZ, cache):
+    """
+    Implement the linear portion of backward propagation for a single layer (layer l)
+
+    Arguments:
+    dZ -- Gradient of the cost with respect to the linear output (of current layer l)
+    cache -- tuple of values (A_prev, W, b) coming from the forward propagation in the current layer
+
+    Returns:
+    dA_prev -- Gradient of the cost with respect to the activation (of the previous layer l-1), same shape as A_prev
+    dW -- Gradient of the cost with respect to W (current layer l), same shape as W
+    db -- Gradient of the cost with respect to b (current layer l), same shape as b
+    """
+    A_prev, W, b = cache
+    m = A_prev.shape[1]
+   ### START CODE HERE ### (≈ 3 lines of code)
+    dW = 1 / m * np.dot(dZ ,A_prev.T)
+    db = 1 / m * np.sum(dZ,axis = 1 ,keepdims=True)
+    dA_prev = np.dot(W.T,dZ) 
+    ### END CODE HERE ###
+    
+    assert (dA_prev.shape == A_prev.shape)
+    assert (dW.shape == W.shape)
+    assert (db.shape == b.shape)
+    
+    return dA_prev, dW, db
+
+# Set up some test inputs
+dZ, linear_cache = linear_backward_test_case()
+
+dA_prev, dW, db = linear_backward(dZ, linear_cache)
+print ("dA_prev = "+ str(dA_prev))
+print ("dW = " + str(dW))
+print ("db = " + str(db))
+```
+
+output：
+
+```PYTHON
+dA_prev = [[ 0.51822968 -0.19517421]
+ [-0.40506361  0.15255393]
+ [ 2.37496825 -0.89445391]]
+dW = [[-0.10076895  1.40685096  1.64992505]]
+db = [[0.50629448]]
+```
+
+### 5.2-反向线性激活
+
+接下来，创建一个合并两个辅助函数的函数：**`linear_backward`** 和反向步骤的激活 **`linear_activation_backward`**。
+
+为了帮助你实现`linear_activation_backward`，我们提供了两个反向函数：
+
+- **`sigmoid_backward`**：实现SIGMOID单元的反向传播。 你可以这样使用：
+
+```python
+dZ = sigmoid_backward(dA, activation_cache)
+```
+
+- **`relu_backward`**：实现RELU单元的反向传播。 你可以这样使用：
+
+```python
+dZ = relu_backward(dA, activation_cache)
+```
+
+如果𝑔(.)是激活函数，
+`sigmoid_backward`和`relu_backward`计算
+$$
+dZ^{[l]} = dA^{[l]} * g'(Z^{[l]}) \tag{11}
+$$
+**练习**：实现*LINEAR->ACTIVATION* 层的反向传播。
+
+```PYTHON
+# GRADED FUNCTION: linear_activation_backward
+
+def linear_activation_backward(dA, cache, activation):
+    """
+    Implement the backward propagation for the LINEAR->ACTIVATION layer.
+    
+    Arguments:
+    dA -- post-activation gradient for current layer l 
+    cache -- tuple of values (linear_cache, activation_cache) we store for computing backward propagation efficiently
+    activation -- the activation to be used in this layer, stored as a text string: "sigmoid" or "relu"
+    
+    Returns:
+    dA_prev -- Gradient of the cost with respect to the activation (of the previous layer l-1), same shape as A_prev
+    dW -- Gradient of the cost with respect to W (current layer l), same shape as W
+    db -- Gradient of the cost with respect to b (current layer l), same shape as b
+    """
+    linear_cache, activation_cache = cache
+    
+    if activation == "relu":
+        ### START CODE HERE ### (≈ 2 lines of code)
+        dZ = relu_backward(dA, activation_cache)#公式11可以看出，需要本层的Z和dA
+        dA_prev, dW, db = linear_backward(dZ, linear_cache)#计算dw，db，da[L-1]，5-1下的图
+        ### END CODE HERE ###
+        
+    elif activation == "sigmoid":
+        ### START CODE HERE ### (≈ 2 lines of code)
+        dZ = sigmoid_backward(dA, activation_cache)
+        dA_prev, dW, db = linear_backward(dZ, linear_cache)
+        ### END CODE HERE ###
+    
+    return dA_prev, dW, db
+
+AL, linear_activation_cache = linear_activation_backward_test_case()
+
+dA_prev, dW, db = linear_activation_backward(AL, linear_activation_cache, activation = "sigmoid")
+print ("sigmoid:")
+print ("dA_prev = "+ str(dA_prev))
+print ("dW = " + str(dW))
+print ("db = " + str(db) + "\n")
+
+dA_prev, dW, db = linear_activation_backward(AL, linear_activation_cache, activation = "relu")
+print ("relu:")
+print ("dA_prev = "+ str(dA_prev))
+print ("dW = " + str(dW))
+print ("db = " + str(db))
+```
+
+output：
+
+```python
+sigmoid:
+dA_prev = [[ 0.11017994  0.01105339]
+ [ 0.09466817  0.00949723]
+ [-0.05743092 -0.00576154]]
+dW = [[ 0.10266786  0.09778551 -0.01968084]]
+db = [[-0.05729622]]
+
+relu:
+dA_prev = [[ 0.44090989  0.        ]
+ [ 0.37883606  0.        ]
+ [-0.2298228   0.        ]]
+dW = [[ 0.44513824  0.37371418 -0.10478989]]
+db = [[-0.20837892]]
+```
+
+### 5.3-反向L层模型
+
+现在，你将为整个网络实现反向传播函数。 回想一下，当你实现`L_model_forward`函数时，在每次迭代中，你都存储了一个包含（X，W，b和z）的缓存。 在反向传播模块中，你将使用这些变量来计算梯度。 因此，在`L_model_backward`函数中，你将从𝐿层开始向后遍历所有隐藏层。在每个步骤中，你都将使用𝑙层的缓存值反向传播到层𝑙。 
+
+![image-20240602150208160](images/image-20240602150208160.png)
+
+**初始化反向传播**：
+为了使网络反向传播，我们知道输出是
+![image-20240602150841213](images/image-20240602150841213.png)。因此，你的代码需要计算`dAL` =![image-20240602150848923](images/image-20240602150848923.png)。
+为此，请使用以下公式（不需要深入的微积分知识)：
+
+![image-20240602155717771](images/image-20240602155717771.png)
+
+np.divide()为矩阵除法。
+
+```python
+dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL)) # derivative of cost with respect to AL
+```
+
+然后，你可以使用此激活后的梯度`dAL`继续反向传播。如图5所示，你现在可以将`dAL`输入到你实现的LINEAR-> SIGMOID反向函数中（它将使用L_model_forward函数存储的缓存值）。之后，你得通过`for`循环，使用LINEAR-> RELU反向函数迭代所有其他层。同时将每个dA，dW和db存储在grads词典中。为此，请使用以下公式：
+$$
+grads["dW" + str(l)] = dW^{[l]}\tag{15}
+$$
+例如，当𝑙=3时，它将在`grads["dW3"]`中存储 ![image-20240602150950270](images/image-20240602150950270.png)。
+
+**练习**：实现 *[LINEAR->RELU] × (L-1) -> LINEAR -> SIGMOID* 模型的反向传播。
+
+```python
+# GRADED FUNCTION: L_model_backward
+
+def L_model_backward(AL, Y, caches):
+    """
+    Implement the backward propagation for the [LINEAR->RELU] * (L-1) -> LINEAR -> SIGMOID group
+    
+    Arguments:
+    AL -- probability vector, output of the forward propagation (L_model_forward())
+    Y -- true "label" vector (containing 0 if non-cat, 1 if cat)
+    caches -- list of caches containing:
+                every cache of linear_activation_forward() with "relu" (it's caches[l], for l in range(L-1) i.e l = 0...L-2)
+                the cache of linear_activation_forward() with "sigmoid" (it's caches[L-1])
+    
+    Returns:
+    grads -- A dictionary with the gradients
+             grads["dA" + str(l)] = ...
+             grads["dW" + str(l)] = ...
+             grads["db" + str(l)] = ...
+    """
+    grads = {}
+    L = len(caches) # the number of layers
+    m = AL.shape[1]
+    Y = Y.reshape(AL.shape) # after this line, Y is the same shape as AL
+
+    # Initializing the backpropagation
+    ### START CODE HERE ### (1 line of code)
+    dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
+    ### END CODE HERE ###
+    
+    # Lth layer (SIGMOID -> LINEAR) gradients. Inputs: "AL, Y, caches". Outputs: "grads["dAL"], grads["dWL"], grads["dbL"]
+    ### START CODE HERE ### (approx. 2 lines)
+    current_cache = caches[L-1]
+    #前方我们所说我们并不计算dA[0],上方已经初始化了dAL，所以这里只需要计算dW，db，dA[L-1]，而"dA" + str(L)指代dA[L-1]，此处实际上我觉得dA[L]指代第一次进入隐藏层循环的dA[L]更为合适。
+    grads["dA" + str(L)], grads["dW" + str(L)], grads["db" + str(L)] = linear_activation_backward(dAL, current_cache, activation = "sigmoid")
+    ### END CODE HERE ###
+     #反向循环，从L-2到0。
+    for l in reversed(range(L - 1)):
+        # lth layer: (RELU -> LINEAR) gradients.
+        # Inputs: "grads["dA" + str(l + 2)], caches". Outputs: "grads["dA" + str(l + 1)] , grads["dW" + str(l + 1)] , grads["db" + str(l + 1)] 
+        ### START CODE HERE ### (approx. 5 lines)
+        current_cache = caches[l]
+        #第一次循环，这里的l=L-2，因此str(l+2)既是L，即计算得出的进入第一次循环的dA[L]。
+        dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l+2)], current_cache, activation = "relu")
+        grads["dA" + str(l + 1)] = dA_prev_temp#实际上为dA[L-1]，下方同理。
+        grads["dW" + str(l + 1)] = dW_temp
+        grads["db" + str(l + 1)] = db_temp
+        ### END CODE HERE ###
+
+
+    return grads
+AL, Y_assess, caches = L_model_backward_test_case()
+grads = L_model_backward(AL, Y_assess, caches)
+print ("dW1 = "+ str(grads["dW1"]))
+print ("db1 = "+ str(grads["db1"]))
+print ("dA1 = "+ str(grads["dA1"]))
+```
+
+output：
+
+```python
+dW1 = [[0.41010002 0.07807203 0.13798444 0.10502167]
+ [0.         0.         0.         0.        ]
+ [0.05283652 0.01005865 0.01777766 0.0135308 ]]
+db1 = [[-0.22007063]
+ [ 0.        ]
+ [-0.02835349]]
+dA1 = [[ 0.          0.52257901]
+ [ 0.         -0.3269206 ]
+ [ 0.         -0.32070404]
+ [ 0.         -0.74079187]]
+```
+
+### 5.4-更新参数
+
+$$
+W^{[l]} = W^{[l]} - \alpha \text{ } dW^{[l]} \tag{16}
+$$
+
+$$
+b^{[l]} = b^{[l]} - \alpha \text{ } db^{[l]} \tag{17}
+$$
+
+其中 𝛼 是学习率。 在计算更新的参数后，将它们存储在参数字典中。
+
+**练习**：实现`update_parameters()`以使用梯度下降来更新模型参数。
+
+**说明**：
+对于𝑙=1,2,...,𝐿，使用梯度下降更新每个![image-20240602160619315](images/image-20240602160619315.png)和![image-20240602160623903](images/image-20240602160623903.png)的参数。
+
+```python
+# GRADED FUNCTION: update_parameters
+
+def update_parameters(parameters, grads, learning_rate):
+    """
+    Update parameters using gradient descent
+    
+    Arguments:
+    parameters -- python dictionary containing your parameters 
+    grads -- python dictionary containing your gradients, output of L_model_backward
+    
+    Returns:
+    parameters -- python dictionary containing your updated parameters 
+                  parameters["W" + str(l)] = ... 
+                  parameters["b" + str(l)] = ...
+    """
+    
+    L = len(parameters) // 2 # number of layers in the neural network
+
+    # Update rule for each parameter. Use a for loop.
+    ### START CODE HERE ### (≈ 3 lines of code)
+    for l in range(L):
+    #从L开始更新，第一次循环l等于L-1。
+        parameters["W" + str(l+1)] =  parameters["W" + str(l+1)] - learning_rate * grads["dW" + str(l + 1)]
+        parameters["b" + str(l+1)] = parameters["b" + str(l+1)] - learning_rate * grads["db" + str(l + 1)]
+    ### END CODE HERE ###
+        
+    return parameters
+
+parameters, grads = update_parameters_test_case()
+parameters = update_parameters(parameters, grads, 0.1)
+
+print ("W1 = "+ str(parameters["W1"]))
+print ("b1 = "+ str(parameters["b1"]))
+print ("W2 = "+ str(parameters["W2"]))
+print ("b2 = "+ str(parameters["b2"]))
+```
+
+output:
+
+```python
+W1 = [[-0.59562069 -0.09991781 -2.14584584  1.82662008]
+ [-1.76569676 -0.80627147  0.51115557 -1.18258802]
+ [-1.0535704  -0.86128581  0.68284052  2.20374577]]
+b1 = [[-0.04659241]
+ [-1.28888275]
+ [ 0.53405496]]
+W2 = [[-0.55569196  0.0354055   1.32964895]]
+b2 = [[-0.84610769]]
+```
+
+# 深度神经网络应用
+
+你将使用在上一个作业中实现的函数来构建深层网络，并将其应用于分类cat图像和非cat图像。 希望你会看到相对于先前的逻辑回归实现的分类，准确性有所提高。
+
+**完成此任务后，你将能够：**
+
+- 建立深度神经网络并将其应用于监督学习。
+
+## 1-安装包
+
+让我们首先导入在作业过程中需要的所有软件包。
+
+- [numpy](https://www.heywhale.com/api/notebooks/5e8dff7ae7ec38002d00adc0/www.numpy.org)是Python科学计算的基本包。
+- [matplotlib](http://matplotlib.org/) 是在Python中常用的绘制图形的库。
+- [h5py](http://www.h5py.org/)是一个常用的包，可以处理存储为H5文件格式的数据集
+- 这里最后通过[PIL](http://www.pythonware.com/products/pil/)和 [scipy](https://www.scipy.org/)用你自己的图片去测试模型效果。
+- dnn_app_utils提供了上一作业教程“逐步构建你的深度神经网络”中实现的函数。
+- np.random.seed（1）使所有随机函数调用保持一致。 这将有助于我们评估你的作业。
+
+```python
+import time
+import numpy as np
+import h5py
+import matplotlib.pyplot as plt
+import scipy
+from PIL import Image
+from scipy import ndimage
+from lib.dnn_app_utils_v2 import *
+
+
+plt.rcParams['figure.figsize'] = (5.0, 4.0) # set default size of plots
+plt.rcParams['image.interpolation'] = 'nearest'
+plt.rcParams['image.cmap'] = 'gray'
+
+
+np.random.seed(1)
+```
+
+## 2-数据集
+
+你将使用与“用神经网络思想实现Logistic回归”（作业2）中相同的“cats vs non-cats”数据集。 此前你建立的模型在对猫和非猫图像进行分类时只有70％的准确率。 希望你的新模型会更好！
+
+**问题说明**：你将获得一个包含以下内容的数据集（"data.h5"）：
+   \- 标记为cat（1）和非cat（0）图像的训练集**m_train**
+   \- 标记为cat或non-cat图像的测试集**m_test**
+   \- 每个图像的维度都为（num_px，num_px，3），其中3表示3个通道（RGB）。
+
+首先通过运行以下代码来加载数据。
+
+```python
+train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
+```
+
+运行以下代码以展示数据集中的图像。 通过更改索引，然后重新运行单元以查看其他图像。
+
+```python
+# Example of a picture
+index = 7
+plt.imshow(train_x_orig[index])
+print ("y = " + str(train_y[0,index]) + ". It's a " + classes[train_y[0,index]].decode("utf-8") +  " picture.")
+```
+
+查看训练集和验证集中的数据
+
+```python
+# Explore your dataset 
+m_train = train_x_orig.shape[0]
+num_px = train_x_orig.shape[1]
+m_test = test_x_orig.shape[0]
+
+print ("Number of training examples: " + str(m_train))
+print ("Number of testing examples: " + str(m_test))
+print ("Each image is of size: (" + str(num_px) + ", " + str(num_px) + ", 3)")
+print ("train_x_orig shape: " + str(train_x_orig.shape))
+print ("train_y shape: " + str(train_y.shape))
+print ("test_x_orig shape: " + str(test_x_orig.shape))
+print ("test_y shape: " + str(test_y.shape))
+```
+
+output：
+
+```PYTHON
+Number of training examples: 209
+Number of testing examples: 50
+Each image is of size: (64, 64, 3)
+train_x_orig shape: (209, 64, 64, 3)
+train_y shape: (1, 209)
+test_x_orig shape: (50, 64, 64, 3)
+test_y shape: (1, 50)
+```
+
+与往常一样，在将图像输入到网络之前，需要对图像进行重塑和标准化。 下面单元格给出了相关代码。
+
+![image-20240602164540306](images/image-20240602164540306.png)
+
+```python
+# Reshape the training and test examples 
+#-1既是自己推断
+# Reshape the training and test examples 
+train_x_flatten = train_x_orig.reshape(train_x_orig.shape[0], -1).T   # The "-1" makes reshape flatten the remaining dimensions
+test_x_flatten = test_x_orig.reshape(test_x_orig.shape[0], -1).T
+
+# Standardize data to have feature values between 0 and 1.
+#归一化
+train_x = train_x_flatten/255.
+test_x = test_x_flatten/255.
+
+print ("train_x's shape: " + str(train_x.shape))
+print ("test_x's shape: " + str(test_x.shape))
+```
+
+output：
+
+```python
+train_x's shape: (12288, 209)
+test_x's shape: (12288, 50)
+```
+
+ 12288等于 64×64×3，这是图像重塑为向量的大小。
+
+## 3-模型结构
+
+现在你已经熟悉了数据集，是时候建立一个深度神经网络来区分猫图像和非猫图像了。
+
+你将建立两个不同的模型：
+
+- 2层神经网络
+- L层深度神经网络
+
+然后，比较这些模型的性能，并尝试不同的𝐿值。
+
+### 3.1-通用步骤
+
+遵循深度学习步骤来构建模型：
+  1.初始化参数/定义超参数
+  2.循环num_iterations次：
+    a. 正向传播
+    b. 计算损失函数
+    C. 反向传播
+    d. 更新参数（使用参数和反向传播的梯度）
+  4.使用训练好的参数来预测标签
+
+### 3.2-2层神经网络
+
+![Image Name](https://cdn.kesci.com/upload/image/q1m4zl8yie.png?imageView2/0/w/960/h/960)
+
+该模型可以总结为：**INPUT -> LINEAR -> RELU -> LINEAR -> SIGMOID -> OUTPUT**
+
+- 输入维度为（64,64,3）的图像，将其展平为大小为（）（12288,1）的向量。
+
+- 相应的向量：![image-20240602165358949](images/image-20240602165358949.png)乘以大小为![image-20240602165407710](images/image-20240602165407710.png)的权重矩阵![image-20240602165413270](images/image-20240602165413270.png)。
+
+- 然后添加一个偏差项并按照公式获得以下向量：![image-20240602165420273](images/image-20240602165420273.png)。
+
+- 然后，重复相同的过程。
+
+- 将所得向量乘以![image-20240602165430231](images/image-20240602165430231.png)并加上截距（偏差)。
+
+- 最后，采用结果的sigmoid值。 如果大于0.5，则将其分类为猫。
+
+  定义一些关于神经网络的参数。
+
+  ```python
+  ### CONSTANTS DEFINING THE MODEL ####
+  n_x = 12288     # num_px * num_px * 3  输入层单元数
+  n_h = 7#隐藏层单元数
+  n_y = 1#输出层单元数
+  layers_dims = (n_x, n_h, n_y)
+  ```
+
+  定义two_layer_model()函数，整合2层神经网络步骤。
+
+  ```python
+  # GRADED FUNCTION: two_layer_model
+  
+  def two_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 3000, print_cost=False):
+      """
+      Implements a two-layer neural network: LINEAR->RELU->LINEAR->SIGMOID.
+      
+      Arguments:
+      X -- input data, of shape (n_x, number of examples)
+      Y -- true "label" vector (containing 0 if cat, 1 if non-cat), of shape (1, number of examples)
+      layers_dims -- dimensions of the layers (n_x, n_h, n_y)
+      num_iterations -- number of iterations of the optimization loop
+      learning_rate -- learning rate of the gradient descent update rule
+      print_cost -- If set to True, this will print the cost every 100 iterations 
+      
+      Returns:
+      parameters -- a dictionary containing W1, W2, b1, and b2
+      """
+      
+      np.random.seed(1)
+      grads = {}
+      costs = []                              # to keep track of the cost
+      m = X.shape[1]                           # number of examples
+      (n_x, n_h, n_y) = layers_dims
+      
+      # Initialize parameters dictionary, by calling one of the functions you'd previously implemented
+      ### START CODE HERE ### (≈ 1 line of code)
+      parameters = initialize_parameters(n_x, n_h, n_y)
+      ### END CODE HERE ###
+      
+      # Get W1, b1, W2 and b2 from the dictionary parameters.
+      W1 = parameters["W1"]
+      b1 = parameters["b1"]
+      W2 = parameters["W2"]
+      b2 = parameters["b2"]
+      
+      # Loop (gradient descent)
+  
+      for i in range(0, num_iterations):
+  
+          # Forward propagation: LINEAR -> RELU -> LINEAR -> SIGMOID. Inputs: "X, W1, b1". Output: "A1, cache1, A2, cache2".
+          ### START CODE HERE ### (≈ 2 lines of code)
+          A1, cache1 =linear_activation_forward(X, W1, b1, activation = "relu")#隐藏层前向循环
+          A2, cache2 = linear_activation_forward(A1, W2, b2, activation = "sigmoid")#输出层前向循环
+          ### END CODE HERE ###
+          
+          # Compute cost
+          ### START CODE HERE ### (≈ 1 line of code)
+          cost = compute_cost(A2, Y)
+          ### END CODE HERE ###
+          
+          # Initializing backward propagation
+          dA2 = - (np.divide(Y, A2) - np.divide(1 - Y, 1 - A2))#初始化dA2，为反向传播做准备。
+          
+          # Backward propagation. Inputs: "dA2, cache2, cache1". Outputs: "dA1, dW2, db2; also dA0 (not used), dW1, db1".
+          ### START CODE HERE ### (≈ 2 lines of code)
+          dA1, dW2, db2 = linear_activation_backward(dA2, cache2, activation = "sigmoid")
+          dA0, dW1, db1 = linear_activation_backward(dA1, cache1, activation = "relu")
+          ### END CODE HERE ###
+          
+          # Set grads['dWl'] to dW1, grads['db1'] to db1, grads['dW2'] to dW2, grads['db2'] to db2
+          grads['dW1'] = dW1
+          grads['db1'] = db1
+          grads['dW2'] = dW2
+          grads['db2'] = db2
+          
+          # Update parameters.
+          ### START CODE HERE ### (approx. 1 line of code)
+          parameters = update_parameters(parameters, grads, learning_rate)
+          ### END CODE HERE ###
+  
+          # Retrieve W1, b1, W2, b2 from parameters
+          W1 = parameters["W1"]
+          b1 = parameters["b1"]
+          W2 = parameters["W2"]
+          b2 = parameters["b2"]
+          
+          # Print the cost every 100 training example
+          if print_cost and i % 100 == 0:
+              print("Cost after iteration {}: {}".format(i, np.squeeze(cost)))
+          if print_cost and i % 100 == 0:
+              costs.append(cost)
+         
+      # plot the cost
+  
+      plt.plot(np.squeeze(costs))
+      plt.ylabel('cost')
+      plt.xlabel('iterations (per tens)')
+      plt.title("Learning rate =" + str(learning_rate))
+      plt.show()
+      
+      return parameters
+  ```
+
+  运行下面的单元格以训练模型参数。
+
+  ```python
+  parameters = two_layer_model(train_x, train_y, layers_dims = (n_x, n_h, n_y), num_iterations = 2500, print_cost=True)
+  ```
+
+  output：
+
+  ```python
+  Cost after iteration 0: 0.693049735659989
+  Cost after iteration 100: 0.6464320953428849
+  Cost after iteration 200: 0.6325140647912678
+  Cost after iteration 300: 0.6015024920354665
+  Cost after iteration 400: 0.5601966311605748
+  Cost after iteration 500: 0.515830477276473
+  Cost after iteration 600: 0.4754901313943325
+  Cost after iteration 700: 0.43391631512257495
+  Cost after iteration 800: 0.4007977536203886
+  Cost after iteration 900: 0.3580705011323798
+  Cost after iteration 1000: 0.3394281538366413
+  Cost after iteration 1100: 0.30527536361962654
+  Cost after iteration 1200: 0.27491377282130164
+  Cost after iteration 1300: 0.24681768210614854
+  Cost after iteration 1400: 0.1985073503746608
+  Cost after iteration 1500: 0.17448318112556635
+  Cost after iteration 1600: 0.17080762978097128
+  Cost after iteration 1700: 0.11306524562164709
+  Cost after iteration 1800: 0.09629426845937158
+  Cost after iteration 1900: 0.08342617959726872
+  Cost after iteration 2000: 0.07439078704319091
+  Cost after iteration 2100: 0.06630748132267936
+  Cost after iteration 2200: 0.059193295010381744
+  Cost after iteration 2300: 0.05336140348560562
+  Cost after iteration 2400: 0.048554785628770226
+  ```
+
+  ![image-20240602171452724](images/image-20240602171452724.png)
+
+### 3.3-L层神经网络
+
+![image-20240602165834778](images/image-20240602165834778.png)
+
+该模型可以总结为：**[LINEAR -> RELU] × (L-1) -> LINEAR -> SIGMOID**
+
+- 输入维度为（64,64,3）的图像，将其展平为大小为（）（12288,1）的向量。
+- 相应的向量：![image-20240602165921171](images/image-20240602165921171.png)乘以权重矩阵![image-20240602165929100](images/image-20240602165929100.png)，然后加上截距![image-20240602165934115](images/image-20240602165934115.png)，结果为线性单位。
+- 接下来计算获得的线性单元。对于每个![image-20240602165941238](images/image-20240602165941238.png)，可以重复数次，具体取决于模型体系结构。
+- 最后，采用最终线性单位的sigmoid值。如果大于0.5，则将其分类为猫。
+
+```python
+### CONSTANTS ###
+#备注有错，实际上为四层神经网络，因为输入层不算神经网络。
+layers_dims = [12288, 20, 7, 5, 1] #  5-layer model
+```
+
+定义two_layer_model()函数，整合4层神经网络步骤。
+
+```python
+# GRADED FUNCTION: L_layer_model
+
+def L_layer_model(X, Y, layers_dims, learning_rate = 0.0075, num_iterations = 3000, print_cost=False):#lr was 0.009
+    """
+    Implements a L-layer neural network: [LINEAR->RELU]*(L-1)->LINEAR->SIGMOID.
+    
+    Arguments:
+    X -- data, numpy array of shape (number of examples, num_px * num_px * 3)
+    Y -- true "label" vector (containing 0 if cat, 1 if non-cat), of shape (1, number of examples)
+    layers_dims -- list containing the input size and each layer size, of length (number of layers + 1).
+    learning_rate -- learning rate of the gradient descent update rule
+    num_iterations -- number of iterations of the optimization loop
+    print_cost -- if True, it prints the cost every 100 steps
+    
+    Returns:
+    parameters -- parameters learnt by the model. They can then be used to predict.
+    """
+
+    np.random.seed(1)
+    costs = []                         # keep track of cost
+    
+    # Parameters initialization.
+    ### START CODE HERE ###
+    parameters = initialize_parameters_deep(layers_dims)
+    ### END CODE HERE ###
+    
+    # Loop (gradient descent)
+    for i in range(0, num_iterations):
+
+        # Forward propagation: [LINEAR -> RELU]*(L-1) -> LINEAR -> SIGMOID.
+        ### START CODE HERE ### (≈ 1 line of code)
+        AL, caches = L_model_forward(X, parameters)
+        ### END CODE HERE ###
+        
+        # Compute cost.
+        ### START CODE HERE ### (≈ 1 line of code)
+        cost = compute_cost(AL, Y)
+        ### END CODE HERE ###
+    
+        # Backward propagation.
+        ### START CODE HERE ### (≈ 1 line of code)
+        grads = L_model_backward(AL, Y, caches)
+        ### END CODE HERE ###
+ 
+        # Update parameters.
+        ### START CODE HERE ### (≈ 1 line of code)
+        parameters = update_parameters(parameters, grads, learning_rate)
+        ### END CODE HERE ###
+                
+        # Print the cost every 100 training example
+        if print_cost and i % 100 == 0:
+            print ("Cost after iteration %i: %f" %(i, cost))
+        if print_cost and i % 100 == 0:
+            costs.append(cost)
+            
+    # plot the cost
+    plt.plot(np.squeeze(costs))
+    plt.ylabel('cost')
+    plt.xlabel('iterations (per tens)')
+    plt.title("Learning rate =" + str(learning_rate))
+    plt.show()
+    
+    return parameters
+```
+
+运行下面的单元格以训练你的模型。
+
+```python
+parameters = L_layer_model(train_x, train_y, layers_dims, num_iterations = 2500, print_cost = True)
+```
+
+output：
+
+```python
+Cost after iteration 0: 0.771749
+Cost after iteration 100: 0.672053
+Cost after iteration 200: 0.648263
+Cost after iteration 300: 0.611507
+Cost after iteration 400: 0.567047
+Cost after iteration 500: 0.540138
+Cost after iteration 600: 0.527930
+Cost after iteration 700: 0.465477
+Cost after iteration 800: 0.369126
+Cost after iteration 900: 0.391747
+Cost after iteration 1000: 0.315187
+Cost after iteration 1100: 0.272700
+Cost after iteration 1200: 0.237419
+Cost after iteration 1300: 0.199601
+Cost after iteration 1400: 0.189263
+Cost after iteration 1500: 0.161189
+Cost after iteration 1600: 0.148214
+Cost after iteration 1700: 0.137775
+Cost after iteration 1800: 0.129740
+Cost after iteration 1900: 0.121225
+Cost after iteration 2000: 0.113821
+Cost after iteration 2100: 0.107839
+Cost after iteration 2200: 0.102855
+Cost after iteration 2300: 0.100897
+Cost after iteration 2400: 0.092878
+```
+
+![image-20240602172237808](images/image-20240602172237808.png)
+
+```python
+pred_train = predict(train_x, train_y, parameters)
+pred_test = predict(test_x, test_y, parameters)
+```
+
+output：
+
+```python
+Accuracy: 0.9856459330143539
+Accuracy: 0.8
+```
+
+## 4-结果分析
+
+首先，让我们看一下L层模型标记错误的一些图像。 这将显示一些分类错误的图像。
+
+In [17]:
+
+```python
+print_mislabeled_images(classes, test_x, test_y, pred_test)
+```
+
+![image-20240602173054873](images/image-20240602173054873.png)
