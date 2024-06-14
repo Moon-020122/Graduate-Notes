@@ -84,14 +84,31 @@ def initialize_parameters_zeros(layers_dims):
     return parameters
 
 
-parameters = model(train_X, train_Y, initialization = "zeros")
+
+
+
+
+
+# GRADED FUNCTION: initialize_parameters_random
+
+def initialize_parameters_random(layers_dims):
+
+
+    
+    np.random.seed(3)               # This seed makes sure your "random" numbers will be the as ours
+    parameters = {}
+    L = len(layers_dims)            # integer representing the number of layers
+    
+    for l in range(1, L):
+        ### START CODE HERE ### (≈ 2 lines of code)
+        parameters['W' + str(l)] = np.random.randn(layers_dims[l],layers_dims[l-1])*10
+        parameters['b' + str(l)] = np.zeros((layers_dims[l],1))
+        ### END CODE HERE ###
+
+    return parameters
+
+parameters = model(train_X, train_Y, initialization = "random")
 print ("On the train set:")
 predictions_train = predict(train_X, train_Y, parameters)
 print ("On the test set:")
 predictions_test = predict(test_X, test_Y, parameters)
-
-plt.title("Model with Zeros initialization")
-axes = plt.gca()
-axes.set_xlim([-1.5,1.5])
-axes.set_ylim([-1.5,1.5])
-plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y)

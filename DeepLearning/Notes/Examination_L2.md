@@ -270,3 +270,137 @@ output:
 
 - 权重$W^{[l]}$应该随机初始化以打破对称性。
 - 将偏差$b^{[l]}$初始化为零是可以的。只要随机初始化了$W^{[l]}$，对称性仍然会破坏。
+
+### 1.2-随机初始化
+
+​	为了打破对称性，让我们随机设置权重。 在随机初始化之后，每个神经元可以继续学习其输入的不同特征。 在本练习中，你将看到如果将权重随机初始化为非常大的值会发生什么。
+
+​	**练习**：实现以下函数，将权重初始化为较大的随机值（按*10缩放），并将偏差设为0。 将 `np.random.randn(..,..) * 10`用于权重，将`np.zeros((.., ..))`用于偏差。
+
+```python
+# GRADED FUNCTION: initialize_parameters_random
+
+def initialize_parameters_random(layers_dims):
+    """
+    Arguments:
+    layer_dims -- python array (list) containing the size of each layer.
+    
+    Returns:
+    parameters -- python dictionary containing your parameters "W1", "b1", ..., "WL", "bL":
+                    W1 -- weight matrix of shape (layers_dims[1], layers_dims[0])
+                    b1 -- bias vector of shape (layers_dims[1], 1)
+                    ...
+                    WL -- weight matrix of shape (layers_dims[L], layers_dims[L-1])
+                    bL -- bias vector of shape (layers_dims[L], 1)
+    """
+    
+    np.random.seed(3)               # This seed makes sure your "random" numbers will be the as ours
+    parameters = {}
+    L = len(layers_dims)            # integer representing the number of layers
+    
+    for l in range(1, L):
+        ### START CODE HERE ### (≈ 2 lines of code)
+        parameters['W' + str(l)] = np.random.randn(layers_dims[l],layers_dims[l-1])*10
+        parameters['b' + str(l)] = np.zeros((layers_dims[l],1))
+        ### END CODE HERE ###
+
+    return parameters
+
+parameters = initialize_parameters_random([3, 2, 1])
+print("W1 = " + str(parameters["W1"]))
+print("b1 = " + str(parameters["b1"]))
+print("W2 = " + str(parameters["W2"]))
+print("b2 = " + str(parameters["b2"]))
+```
+
+output:
+
+```python
+W1 = [[ 17.88628473   4.36509851   0.96497468]
+ [-18.63492703  -2.77388203  -3.54758979]]
+b1 = [[0.]
+ [0.]]
+W2 = [[-0.82741481 -6.27000677]]
+b2 = [[0.]]
+```
+
+运行以下代码使用随机初始化迭代15,000次以训练模型。
+
+```python
+parameters = model(train_X, train_Y, initialization = "random")
+print ("On the train set:")
+predictions_train = predict(train_X, train_Y, parameters)
+print ("On the test set:")
+predictions_test = predict(test_X, test_Y, parameters)
+```
+
+output:
+
+```PYTHON
+Cost after iteration 0: inf
+Cost after iteration 1000: 0.6247924745506072
+Cost after iteration 2000: 0.5980258056061102
+Cost after iteration 3000: 0.5637539062842213
+Cost after iteration 4000: 0.5501256393526495
+Cost after iteration 5000: 0.5443826306793814
+Cost after iteration 6000: 0.5373895855049121
+Cost after iteration 7000: 0.47157999220550006
+Cost after iteration 8000: 0.39770475516243037
+Cost after iteration 9000: 0.3934560146692851
+Cost after iteration 10000: 0.3920227137490125
+Cost after iteration 11000: 0.38913700035966736
+Cost after iteration 12000: 0.3861358766546214
+Cost after iteration 13000: 0.38497629552893475
+Cost after iteration 14000: 0.38276694641706693
+On the train set:
+Accuracy: 0.83
+On the test set:
+Accuracy: 0.86
+```
+
+![image-20240614115011370](images/image-20240614115011370.png)
+
+因为数值舍入，你可能在0迭代之后看到损失为"inf"(infinite 无限)，我们会在之后用更复杂的数字实现解决此问题。
+
+```python
+print (predictions_train)
+print (predictions_test)
+```
+output：
+```python
+[[1 0 1 1 0 0 1 1 1 1 1 0 1 0 0 1 0 1 1 0 0 0 1 0 1 1 1 1 1 1 0 1 1 0 0 1
+  1 1 1 1 1 1 1 0 1 1 1 1 0 1 0 1 1 1 1 0 0 1 1 1 1 0 1 1 0 1 0 1 1 1 1 0
+  0 0 0 0 1 0 1 0 1 1 1 0 0 1 1 1 1 1 1 0 0 1 1 1 0 1 1 0 1 0 1 1 0 1 1 0
+  1 0 1 1 0 0 1 0 0 1 1 0 1 1 1 0 1 0 0 1 0 1 1 1 1 1 1 1 0 1 1 0 0 1 1 0
+  0 0 1 0 1 0 1 0 1 1 1 0 0 1 1 1 1 0 1 1 0 1 0 1 1 0 1 0 1 1 1 1 0 1 1 1
+  1 0 1 0 1 0 1 1 1 1 0 1 1 0 1 1 0 1 1 0 1 0 1 1 1 0 1 1 1 0 1 0 1 0 0 1
+  0 1 1 0 1 1 0 1 1 0 1 1 1 0 1 1 1 1 0 1 0 0 1 1 0 1 1 1 0 0 0 1 1 0 1 1
+  1 1 0 1 1 0 1 1 1 0 0 1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 1 1 1
+  1 1 1 1 0 0 0 1 1 1 1 0]]
+[[1 1 1 1 0 1 0 1 1 0 1 1 1 0 0 0 0 1 0 1 0 0 1 0 1 0 1 1 1 1 1 0 0 0 0 1
+  0 1 1 0 0 1 1 1 1 1 0 1 1 1 0 1 0 1 1 0 1 0 1 0 1 1 1 1 1 1 1 1 1 0 1 0
+  1 1 1 1 1 0 1 0 0 1 0 0 0 1 1 0 1 1 0 0 0 1 1 0 1 1 0 0]]
+```
+
+```python
+plt.title("Model with large random initialization")
+axes = plt.gca()
+axes.set_xlim([-1.5,1.5])
+axes.set_ylim([-1.5,1.5])
+plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y)
+```
+
+output：
+
+![image-20240614115411087](images/image-20240614115411087.png)
+
+- 损失一开始很高是因为较大的随机权重值，对于某些数据，最后一层激活函数sigmoid输出的结果非常接近0或1，并且当该示例数据预测错误时，将导致非常高的损失。当$\log(a^{[3]}) = \log(0)$时，损失达到无穷大。
+- 初始化不当会导致梯度消失/爆炸，同时也会减慢优化算法的速度。
+- 训练较长时间的网络，将会看到更好的结果，但是使用太大的随机数进行初始化会降低优化速度。
+
+**总结**：
+
+- 将权重初始化为非常大的随机值效果不佳。
+- 初始化为较小的随机值会更好。重要的问题是：这些随机值应为多小？让我们在下一部分中找到答案！
+
+## 4 He初始化
