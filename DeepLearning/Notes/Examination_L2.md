@@ -403,4 +403,112 @@ output：
 - 将权重初始化为非常大的随机值效果不佳。
 - 初始化为较小的随机值会更好。重要的问题是：这些随机值应为多小？让我们在下一部分中找到答案！
 
-## 4 He初始化
+### 1.3-He初始化
+
+​	尝试“He 初始化”，该名称以He等人的名字命名（类似于“Xavier初始化”，但Xavier初始化使用比例因子 `sqrt(1./layers_dims[l-1])`来表示权重𝑊[𝑙] ，而He初始化使用`sqrt(2./layers_dims[l-1])`）。
+
+​	**练习**：实现以下函数，以He初始化来初始化参数。
+
+​	**提示**：此函数类似于先前的`initialize_parameters_random(...)`。 唯一的不同是，无需将`np.random.randn(..,..)`乘以10，而是将其乘以2dimension of the previous layer，这是He初始化建议使用的ReLU激活层。
+
+```python
+def initialize_parameters_he(layers_dims):
+    """
+    Arguments:
+    layer_dims -- python array (list) containing the size of each layer. 包含每层大小的 python 数组（列表）。
+    
+    Returns:
+    parameters -- python dictionary containing your parameters "W1", "b1", ..., "WL", "bL":
+                    W1 -- weight matrix of shape (layers_dims[1], layers_dims[0])
+                    b1 -- bias vector of shape (layers_dims[1], 1)
+                    ...
+                    WL -- weight matrix of shape (layers_dims[L], layers_dims[L-1])
+                    bL -- bias vector of shape (layers_dims[L], 1)
+    """
+    
+    np.random.seed(3)
+    parameters = {}
+    L = len(layers_dims) - 1 # integer representing the number of layers  此处是包含每层大小的python数组，而并非直接定义的层数。
+     
+    for l in range(1, L + 1): #从1到L
+        ### START CODE HERE ### (≈ 2 lines of code)
+        parameters['W' + str(l)] = np.random.randn(layers_dims[l],layers_dims[l-1])*np.sqrt(2./layers_dims[l-1])
+        parameters['b' + str(l)] = np.zeros((layers_dims[l],1))
+        ### END CODE HERE ###
+        
+    return parameters
+parameters = initialize_parameters_he([2, 4, 1])
+print("W1 = " + str(parameters["W1"]))
+print("b1 = " + str(parameters["b1"]))
+print("W2 = " + str(parameters["W2"]))
+print("b2 = " + str(parameters["b2"]))
+```
+
+output：
+
+```python
+W1 = [[ 1.78862847  0.43650985]
+ [ 0.09649747 -1.8634927 ]
+ [-0.2773882  -0.35475898]
+ [-0.08274148 -0.62700068]]
+b1 = [[0.]
+ [0.]
+ [0.]
+ [0.]]
+W2 = [[-0.03098412 -0.33744411 -0.92904268  0.62552248]]
+b2 = [[0.]]
+```
+
+运行以下代码，使用He初始化并迭代15,000次以训练你的模型。
+
+```py
+parameters = model(train_X, train_Y, initialization = "he")
+print ("On the train set:")
+predictions_train = predict(train_X, train_Y, parameters)
+print ("On the test set:")
+predictions_test = predict(test_X, test_Y, parameters)
+```
+
+output：
+
+```python
+Cost after iteration 0: 0.8830537463419761
+Cost after iteration 1000: 0.6879825919728063
+Cost after iteration 2000: 0.6751286264523371
+Cost after iteration 3000: 0.6526117768893805
+Cost after iteration 4000: 0.6082958970572938
+Cost after iteration 5000: 0.5304944491717495
+Cost after iteration 6000: 0.4138645817071794
+Cost after iteration 7000: 0.3117803464844441
+Cost after iteration 8000: 0.23696215330322562
+Cost after iteration 9000: 0.1859728720920684
+Cost after iteration 10000: 0.15015556280371808
+Cost after iteration 11000: 0.12325079292273551
+Cost after iteration 12000: 0.09917746546525937
+Cost after iteration 13000: 0.08457055954024283
+Cost after iteration 14000: 0.07357895962677366
+On the train set:
+Accuracy: 0.9933333333333333
+On the test set:
+Accuracy: 0.96
+```
+
+![image-20240617231530976](images/image-20240617231530976.png)
+
+```python
+plt.title("Model with He initialization")
+axes = plt.gca()
+axes.set_xlim([-1.5,1.5])
+axes.set_ylim([-1.5,1.5])
+# plot_decision_boundary 的函数，它用于绘制决策边界。这个函数接受三个参数：
+	#一个 lambda 函数：lambda x: predict_dec(parameters, x.T)，它是一个匿名函数，用于对输入的 x 应用 predict_dec 函数。这里的 parameters 是预先定义的模型参数，而 x.T 是将输入的 x 转置。
+    #train_X：这通常是一个包含训练数据特征的数组。
+	#train_Y：这通常是一个包含训练数据标签的数组。
+plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y)
+```
+
+![image-20240617234257865](images/image-20240617234257865.png)
+
+2-总结
+
+# 神经网络正则化

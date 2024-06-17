@@ -112,3 +112,19 @@ print ("On the train set:")
 predictions_train = predict(train_X, train_Y, parameters)
 print ("On the test set:")
 predictions_test = predict(test_X, test_Y, parameters)
+
+# GRADED FUNCTION: initialize_parameters_he
+
+def initialize_parameters_he(layers_dims):
+    
+    np.random.seed(3)
+    parameters = {}
+    L = len(layers_dims) - 1 # integer representing the number of layers  此处是包含每层大小的python数组，而并非直接定义的层数。
+     
+    for l in range(1, L + 1): #从1到L
+        ### START CODE HERE ### (≈ 2 lines of code)
+        parameters['W' + str(l)] = np.random.randn(layers_dims[l],layers_dims[l-1])*np.sqrt(2./layers_dims[l-1])
+        parameters['b' + str(l)] = np.zeros((layers_dims[l],1))
+        ### END CODE HERE ###
+        
+    return parameters
