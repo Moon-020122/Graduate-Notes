@@ -509,6 +509,166 @@ plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y)
 
 ![image-20240617234257865](images/image-20240617234257865.png)
 
-2-总结
-
 # 神经网络正则化
+
+​	深度学习模型具有很高的灵活性和能力，如果训练数据集不够大，**将会造成一个严重的问题--过拟合**。尽管它在训练集上效果很好，但是学到的网络**不能应用到测试集中！**
+
+​	首先导入要使用的包。
+
+```python
+# import packages
+import numpy as np
+import matplotlib.pyplot as plt
+from lib.reg_utils import sigmoid, relu, plot_decision_boundary, initialize_parameters, load_2D_dataset, predict_dec
+from lib.reg_utils import compute_cost, predict, forward_propagation, backward_propagation, update_parameters
+import sklearn
+import sklearn.datasets
+import scipy.io
+from lib.testCases import *
+
+plt.rcParams['figure.figsize'] = (7.0, 4.0) # set default size of plots
+plt.rcParams['image.interpolation'] = 'nearest'
+plt.rcParams['image.cmap'] = 'gray'
+```
+
+**问题陈述**：你刚刚被法国足球公司聘为AI专家。他们希望你推荐预测法国守门员将球踢出的位置，以便法国队的球员可以用头将球击中。
+
+![image-20240619213902974](images/image-20240619213902974.png)
+	守门员将球踢到空中，每支球队的球员都在尽力用头击球
+
+​	以下提供了法国过去10场比赛的二维数据集。
+
+```python
+train_X, train_Y, test_X, test_Y = load_2D_dataset()
+```
+
+output:
+
+![image-20240619214954850](images/image-20240619214954850.png)
+
+数据中每个点对应于足球场上的位置，在该位置上，法国守门员从足球场左侧射出球后，足球运动员用他/她的头部击中了球。
+
+- 如果圆点为蓝色，则表示法国球员设法用头部将球击中
+- 如果圆点为红色，则表示另一支球队的球员用头撞球
+
+**你的目标**：运用深度学习模型预测守门员应将球踢到球场上的位置。
+
+**数据集分析**：该数据集含有噪声，但一条将左上半部分（蓝色）与右下半部分（红色）分开的对角线会很比较有效。
+
+首先尝试非正则化模型。然后学习如何对其进行正则化，并决定选择哪种模型来解决法国足球公司的问题。
+
+## 1-非正则化模型
+
+你将使用以下神经网络（已为你实现），可以如下使用此模型：
+
+- 在*regularization mode*中，通过`lambd`将输入设置为非零值。我们使用`lambd`代替`lambda`，因为`lambda`是Python中的保留关键字。
+- 在*dropout mode*中，将`keep_prob`设置为小于1的值
+
+首先，你将尝试不进行任何正则化的模型。然后，你将实现：
+
+- *L2 正则化* 函数：`compute_cost_with_regularization()`和`backward_propagation_with_regularization()`
+- *Dropout* 函数：`forward_propagation_with_dropout()`和`backward_propagation_with_dropout()`
+
+```PYTHON
+def model(X, Y, learning_rate = 0.3, num_iterations = 30000, print_cost = True, lambd = 0, keep_prob = 1):
+    """
+    Implements a three-layer neural network: LINEAR->RELU->LINEAR->RELU->LINEAR->SIGMOID.
+    
+    Arguments:
+    X -- input data, of shape (input size, number of examples)
+    Y -- true "label" vector (1 for blue dot / 0 for red dot), of shape (output size, number of examples)
+    learning_rate -- learning rate of the optimization
+    num_iterations -- number of iterations of the optimization loop
+    print_cost -- If True, print the cost every 10000 iterations
+    lambd -- regularization hyperparameter, scalar
+    keep_prob - probability of keeping a neuron active during drop-out, scalar.
+    
+    Returns:
+    parameters -- parameters learned by the model. They can then be used to predict.
+    """
+        
+    grads = {}
+    costs = []                            # to keep track of the cost
+    m = X.shape[1]                        # number of examples 样本数
+    layers_dims = [X.shape[0], 20, 3, 1] #三层神经网络，第一层为预处理后的样本
+    
+    # Initialize parameters dictionary.
+    parameters = initialize_parameters(layers_dims) #初始化参数w和b（多个）
+
+    # Loop (gradient descent)
+
+    for i in range(0, num_iterations):
+
+        # Forward propagation: LINEAR -> RELU -> LINEAR -> RELU -> LINEAR -> SIGMOID.
+        if keep_prob == 1:
+            a3, cache = forward_propagation(X, parameters)
+        elif keep_prob < 1:
+            a3, cache = forward_propagation_with_dropout(X, parameters, keep_prob) #a3是最后一层的输出
+        
+        # Cost function
+        if lambd == 0: #补偿学习率
+            cost = compute_cost(a3, Y)
+        else:
+            cost = compute_cost_with_regularization(a3, Y, parameters, lambd)  #是对用w对成本函数进行修正，因此传入parameters获取w参数
+            
+        # Backward propagation.
+        assert(lambd==0 or keep_prob==1)    # it is possible to use both L2 regularization and dropout, 
+                                            # but this assignment will only explore one at a time
+        if lambd == 0 and keep_prob == 1:
+            grads = backward_propagation(X, Y, cache) #正常反向传播
+        elif lambd != 0:
+            grads = backward_propagation_with_regularization(X, Y, cache, lambd)
+        elif keep_prob < 1:
+            grads = backward_propagation_with_dropout(X, Y, cache, keep_prob)
+        
+        # Update parameters.
+        parameters = update_parameters(parameters, grads, learning_rate)
+        
+        # Print the loss every 10000 iterations
+        if print_cost and i % 10000 == 0:
+            print("Cost after iteration {}: {}".format(i, cost))
+        if print_cost and i % 1000 == 0:
+            costs.append(cost)
+    
+    # plot the cost
+    plt.plot(costs)
+    plt.ylabel('cost')
+    plt.xlabel('iterations (x1,000)')
+    plt.title("Learning rate =" + str(learning_rate))
+    plt.show()
+    
+    return parameters
+parameters = model(train_X, train_Y)
+print ("On the training set:")
+predictions_train = predict(train_X, train_Y, parameters)
+print ("On the test set:")
+predictions_test = predict(test_X, test_Y, parameters)
+plt.title("Model without regularization")
+axes = plt.gca()
+axes.set_xlim([-0.75,0.40])
+axes.set_ylim([-0.75,0.65])
+plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y)
+plt.show()
+```
+
+
+
+在不进行任何正则化的情况下训练模型，并观察训练/测试集的准确性。
+
+output：
+
+```PYTHON
+Cost after iteration 0: 0.6557412523481002
+Cost after iteration 10000: 0.1632998752572417
+Cost after iteration 20000: 0.13851642423284755
+```
+
+![image-20240619220547567](images/image-20240619220547567.png)
+
+
+
+![image-20240619220641508](images/image-20240619220641508.png)
+
+非正则化模型显然过度拟合了训练集，拟合了一些噪声点！现在让我们看一下减少过拟合的两种手段。
+
+## 2-L2正则化	
