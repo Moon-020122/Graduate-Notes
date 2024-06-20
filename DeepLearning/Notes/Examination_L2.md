@@ -672,3 +672,209 @@ Cost after iteration 20000: 0.13851642423284755
 非正则化模型显然过度拟合了训练集，拟合了一些噪声点！现在让我们看一下减少过拟合的两种手段。
 
 ## 2-L2正则化	
+
+避免过拟合的标准方法称为 **L2正则化**，它将损失函数从：
+$$
+J = -\frac{1}{m} \sum\limits_{i = 1}^{m} \large{(}\small  y^{(i)}\log\left(a^{[L](i)}\right) + (1-y^{(i)})\log\left(1- a^{[L](i)}\right) \large{)} \tag{1}
+$$
+修改到：
+$$
+J_{regularized} = \small \underbrace{-\frac{1}{m} \sum\limits_{i = 1}^{m} \large{(}\small y^{(i)}\log\left(a^{[L](i)}\right) + (1-y^{(i)})\log\left(1- a^{[L](i)}\right) \large{)} }_\text{cross-entropy cost} + \underbrace{\frac{1}{m} \frac{\lambda}{2} \sum\limits_l\sum\limits_k\sum\limits_j W_{k,j}^{[l]2} }_\text{L2 regularization cost} \tag{2}
+$$
+在神经网络中，这个公式中的 **k** 和 **j** 代表以下内容：
+
+- **k** 表示神经网络中的第 **k** 个神经元或节点。
+- **j** 表示与第 **k** 个神经元相连的权重。
+
+假设有一个神经网络，隐藏层有3个神经元，每个神经元与输入层的4个特征相连。我们可以表示这个隐藏层的权重矩阵为：
+$$
+W^{[1]} = \begin{bmatrix}
+0.5  ; -0.2 ; 0.8 ; 0.3 \\
+-0.1 ; 0.6  ; -0.4; 0.7 \\
+0.2  ; 0.4  ; 0.1 ; -0.5 \\
+\end{bmatrix}
+$$
+现在，我们可以计算每个权重的平方并求和：
+$$
+\sum_{k}\sum_{j} W_{k,j}^{[1]2} = (0.5)^2 + (-0.2)^2 + 0.8^2 + 0.3^2 + (-0.1)^2 + 0.6^2 + (-0.4)^2 + 0.7^2 + 0.2^2 + 0.4^2 + 0.1^2 + (-0.5)^2
+$$
+计算结果为：
+$$
+\sum_{k}\sum_{j} W_{k,j}^{[1]2} = 2.63
+$$
+​	**练习**：实现`compute_cost_with_regularization（）`，以计算公式（2）的损失。要计算$\sum\limits_k\sum\limits_j W_{k,j}^{[l]2}$ ，请使用：
+
+```python
+np.sum(np.square(Wl))
+```
+
+必须对$W^{[1]}$，$W^{[2]}$和$W^{[3]}$执行此操作，然后将三个项相加并乘以$\frac{1}{m}\frac{\lambda}{2}$。
+
+```PYTHON
+def compute_cost_with_regularization(A3, Y, parameters, lambd):
+    """
+    Implement the cost function with L2 regularization. See formula (2) above.
+    
+    Arguments:
+    A3 -- post-activation, output of forward propagation, of shape (output size, number of examples)
+    Y -- "true" labels vector, of shape (output size, number of examples)
+    parameters -- python dictionary containing parameters of the model
+    
+    Returns:
+    cost - value of the regularized loss function (formula (2))
+    """
+    m = Y.shape[1]
+    W1 = parameters["W1"]
+    W2 = parameters["W2"]
+    W3 = parameters["W3"]
+    
+    cross_entropy_cost = compute_cost(A3, Y) # This gives you the cross-entropy part of the cost 计算损失函数
+    
+    ### START CODE HERE ### (approx. 1 line)
+    L2_regularization_cost = (1./m*lambd/2)*(np.sum(np.square(W1)) + np.sum(np.square(W2)) + np.sum(np.square(W3))) #计算L2正则化项
+    ### END CODER HERE ###
+    
+    cost = cross_entropy_cost + L2_regularization_cost
+    
+    return cost
+
+A3, Y_assess, parameters = compute_cost_with_regularization_test_case()
+
+print("cost = " + str(compute_cost_with_regularization(A3, Y_assess, parameters, lambd = 0.1)))
+```
+
+output:
+
+```PYTHON
+cost = 1.7864859451590758
+```
+
+当然，因为你更改了损失，所以还必须更改反向传播！ 必须针对新损失函数计算所有梯度。
+
+**练习**：实现正则化后的反向传播。更改仅涉及dW1，dW2和dW3。对于每一个，你必须添加正则化项的梯度$\frac{d}{dW} ( \frac{1}{2}\frac{\lambda}{m}  W^2) = \frac{\lambda}{m} W$。
+
+非常容易、根据导数四则运算、求导后依旧相加，即在dw后方添加$\frac{\lambda}{m} W$即可。
+
+```PYTHON
+
+def backward_propagation_with_regularization(X, Y, cache, lambd):
+    #导数都是从传导图中直接推算得到
+    """
+    Implements the backward propagation of our baseline model to which we added an L2 regularization.
+
+    Arguments:
+    X -- input dataset, of shape (input size, number of examples)
+    Y -- "true" labels vector, of shape (output size, number of examples)
+    cache -- cache output from forward_propagation()
+    lambd -- regularization hyperparameter, scalar
+
+    Returns:
+    gradients -- A dictionary with the gradients with respect to each parameter, activation and pre-activation variables
+    """
+
+    m = X.shape[1] #样本数
+    (Z1, A1, W1, b1, Z2, A2, W2, b2, Z3, A3, W3, b3) = cache
+
+    dZ3 = A3 - Y
+
+    ### START CODE HERE ### (approx. 1 line)
+    dW3 = 1./m * np.dot(dZ3, A2.T) + lambd/m * W3
+    ### END CODE HERE ###
+    db3 = 1./m * np.sum(dZ3, axis=1, keepdims = True)
+
+    dA2 = np.dot(W3.T, dZ3)
+    dZ2 = np.multiply(dA2, np.int64(A2 > 0))
+    ### START CODE HERE ### (approx. 1 line)
+    dW2 = 1./m * np.dot(dZ2, A1.T) + lambd/m * W2
+    ### END CODE HERE ###
+    db2 = 1./m * np.sum(dZ2, axis=1, keepdims = True)
+
+    dA1 = np.dot(W2.T, dZ2)
+    dZ1 = np.multiply(dA1, np.int64(A1 > 0))
+    ### START CODE HERE ### (approx. 1 line)
+    dW1 = 1./m * np.dot(dZ1, X.T) + lambd/m * W1
+    ### END CODE HERE ###
+    db1 = 1./m * np.sum(dZ1, axis=1, keepdims = True)
+
+    gradients = {"dZ3": dZ3, "dW3": dW3, "db3": db3,"dA2": dA2,
+                 "dZ2": dZ2, "dW2": dW2, "db2": db2, "dA1": dA1, 
+                 "dZ1": dZ1, "dW1": dW1, "db1": db1}
+
+    return gradients
+
+X_assess, Y_assess, cache = backward_propagation_with_regularization_test_case()
+
+grads = backward_propagation_with_regularization(X_assess, Y_assess, cache, lambd = 0.7)
+print ("dW1 = "+ str(grads["dW1"]))
+print ("dW2 = "+ str(grads["dW2"]))
+print ("dW3 = "+ str(grads["dW3"]))
+```
+
+output：
+
+```PYTHON
+dW1 = [[-0.25604646  0.12298827 -0.28297129]
+ [-0.17706303  0.34536094 -0.4410571 ]]
+dW2 = [[ 0.79276486  0.85133918]
+ [-0.0957219  -0.01720463]
+ [-0.13100772 -0.03750433]]
+dW3 = [[-1.77691347 -0.11832879 -0.09397446]]
+```
+
+现在让我们使用L2正则化(𝜆=0.7)运行的模型。`model（）`函数将调用：
+
+- `compute_cost_with_regularization`代替`compute_cost`
+- `backward_propagation_with_regularization`代替`backward_propagation`
+
+```PYTHON
+parameters = model(train_X, train_Y, lambd = 0.7)
+print ("On the train set:")
+predictions_train = predict(train_X, train_Y, parameters)
+print ("On the test set:")
+predictions_test = predict(test_X, test_Y, parameters)
+```
+
+output：
+
+```python
+Cost after iteration 0: 0.6974484493131264
+Cost after iteration 10000: 0.2684918873282239
+Cost after iteration 20000: 0.2680916337127301
+On the train set:
+Accuracy: 0.9383886255924171
+On the test set:
+Accuracy: 0.93
+```
+
+![image-20240620222750656](images/image-20240620222750656.png)
+
+决策边界：
+
+```python
+plt.title("Model with L2-regularization")
+axes = plt.gca()
+axes.set_xlim([-0.75,0.40])
+axes.set_ylim([-0.75,0.65])
+plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y)
+```
+
+output：
+
+![image-20240620222850603](images/image-20240620222850603.png)
+
+- 𝜆  的值是你可以调整开发集的超参数。
+- L2正则化使决策边界更平滑。如果𝜆 太大，则也可能“过度平滑”，从而使模型偏差较高。
+
+### 2.1-L2正则化的原理
+
+L2正则化基于以下假设：权重较小的模型比权重较大的模型更简单。因此，通过对损失函数中权重的平方值进行惩罚，可以将所有权重驱动为较小的值。比重太大会使损失过高！这将导致模型更平滑，输出随着输入的变化而变化得更慢。
+
+ L2正则化的影响：
+
+- 损失计算：
+    \- 正则化条件会添加到损失函数中
+- 反向传播函数：
+    \- 有关权重矩阵的渐变中还有其他术语
+- 权重最终变小（“权重衰减”）：
+    \- 权重被推到较小的值。
+
