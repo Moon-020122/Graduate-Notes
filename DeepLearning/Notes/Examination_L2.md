@@ -1521,3 +1521,524 @@ There is a mistake in the backward propagation! difference = 0.2850931567761624
 - 至少如我们介绍的那样，梯度检验不适用于dropout。通常，你将运行不带dropout的梯度检验算法以确保你的backprop是正确的，然后添加dropout。
 - 梯度检验可验证反向传播的梯度与梯度的数值近似值之间的接近度（使用正向传播进行计算）。
 - 梯度检验很慢，因此我们不会在每次训练中都运行它。通常，你仅需确保其代码正确即可运行它，然后将其关闭并将backprop用于实际的学习过程。
+
+# 算法优化
+
+​	到目前为止，你一直使用梯度下降来更新参数并使损失降至最低。 在本笔记本中，你将学习更多高级的优化方法，以加快学习速度，甚至可以使你的损失函数的获得更低的最终值。 一个好的优化算法可以使需要训练几天的网络，训练仅仅几个小时就能获得良好的结果。
+梯度下降好比在损失函数$J$上“下坡”。就像下图：**损失最小化好比在丘陵景观中寻找最低点**
+
+![image-20240626223539471](images/image-20240626223539471.png)
+
+​	在训练的每个步骤中，你都按照一定的方向更新参数，以尝试到达最低点。
+
+​	**符号**：与往常一样，$\frac{\partial J}{\partial a } =da$适用于任何变量`a`。
+
+​	首先，请运行以下代码以导入所需的库。
+
+```PYTHON
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.io
+import math
+import sklearn
+import sklearn.datasets
+
+from lib.opt_utils import load_params_and_grads, initialize_parameters, forward_propagation, backward_propagation
+from lib.opt_utils import compute_cost, predict, predict_dec, plot_decision_boundary, load_dataset
+from lib.testCases import *
+
+
+plt.rcParams['figure.figsize'] = (7.0, 4.0) # set default size of plots
+plt.rcParams['image.interpolation'] = 'nearest'
+plt.rcParams['image.cmap'] = 'gray'
+```
+
+## 1 梯度下降
+
+​	机器学习中一种简单的优化方法是梯度下降（gradient descent,GD）。当你对每个step中的所有m示例执行梯度计算步骤时，它也叫做“批量梯度下降”。
+
+**热身练习**：实现梯度下降更新方法。 对于$l=1,...,L，$梯度下降规则为：
+$$
+W^{[l]} = W^{[l]} - \alpha \text{ } dW^{[l]} \tag{1}
+$$
+
+$$
+b^{[l]} = b^{[l]} - \alpha \text{ } db^{[l]} \tag{2}
+$$
+
+其中L是层数，$α$是学习率。所有参数都应存储在 `parameters`字典中。请注意，迭代器`l`在`for` 循环中从0开始，而第一个参数是$W^{[1]}$和$b^{[1]}$。编码时需要将`l` 转换为`l+1`。
+
+```PYTHON
+def update_parameters_with_gd(parameters, grads, learning_rate):
+    """
+    Update parameters using one step of gradient descent
+    
+    Arguments:
+    parameters -- python dictionary containing your parameters to be updated:
+                    parameters['W' + str(l)] = Wl
+                    parameters['b' + str(l)] = bl
+    grads -- python dictionary containing your gradients to update each parameters:
+                    grads['dW' + str(l)] = dWl
+                    grads['db' + str(l)] = dbl
+    learning_rate -- the learning rate, scalar.
+    
+    Returns:
+    parameters -- python dictionary containing your updated parameters 
+    """
+
+    L = len(parameters) // 2 # number of layers in the neural networks
+
+    # Update rule for each parameter
+    for l in range(L):
+        ### START CODE HERE ### (approx. 2 lines)
+        parameters["W" + str(l+1)] = parameters["W" + str(l+1)] - learning_rate*grads["dW" + str(l+1)]
+        parameters["b" + str(l+1)] = parameters["b" + str(l+1)] -learning_rate*grads["db" + str(l+1)]
+        ### END CODE HERE ###
+        
+    return parameters
+
+
+parameters, grads, learning_rate = update_parameters_with_gd_test_case()
+parameters = update_parameters_with_gd(parameters, grads, learning_rate)
+print("W1 = " + str(parameters["W1"]))
+print("b1 = " + str(parameters["b1"]))
+print("W2 = " + str(parameters["W2"]))
+print("b2 = " + str(parameters["b2"]))
+```
+
+output：
+
+```PYTHON
+W1 = [[ 1.63535156 -0.62320365 -0.53718766]
+ [-1.07799357  0.85639907 -2.29470142]]
+b1 = [[ 1.74604067]
+ [-0.75184921]]
+W2 = [[ 0.32171798 -0.25467393  1.46902454]
+ [-2.05617317 -0.31554548 -0.3756023 ]
+ [ 1.1404819  -1.09976462 -0.1612551 ]]
+b2 = [[-0.88020257]
+ [ 0.02561572]
+ [ 0.57539477]]
+```
+
+​	它的一种变体是随机梯度下降（SGD），它相当于mini版的批次梯度下降，其中每个mini-batch只有一个数据示例。刚刚实现的更新规则不会更改。不同的是，SGD一次仅在一个训练数据上计算梯度，而不是在整个训练集合上计算梯度。下面的代码示例说明了随机梯度下降和（批量）梯度下降之间的区别。
+
+- **(Batch) Gradient Descent**:
+
+```PYTHON
+X = data_input  
+Y = labels  
+parameters = initialize_parameters(layers_dims)  
+for i in range(0, num_iterations):  
+    # Forward propagation  
+    a, caches = forward_propagation(X, parameters)  
+    # Compute cost.  
+    cost = compute_cost(a, Y)  
+    # Backward propagation.  
+    grads = backward_propagation(a, caches, parameters)  
+    # Update parameters.  
+    parameters = update_parameters(parameters, grads)
+```
+
+- **Stochastic Gradient Descent**:
+
+```python
+X = data_input  
+Y = labels  
+parameters = initialize_parameters(layers_dims)  
+for i in range(0, num_iterations):  
+    for j in range(0, m): #m为样本数，相当于mini-batch为1
+        # Forward propagation  
+        a, caches = forward_propagation(X[:,j], parameters)  
+        # Compute cost  
+        cost = compute_cost(a, Y[:,j])  
+        # Backward propagation  
+        grads = backward_propagation(a, caches, parameters)  
+        # Update parameters.  
+        parameters = update_parameters(parameters, grads)
+```
+
+​	对于随机梯度下降，在更新梯度之前，只使用1个训练样例。当训练集大时，SGD可以更新的更快。但是这些参数会向最小值“摆动”而不是平稳地收敛。下图是一个演示例子：“+”表示损失的最小值。 SGD造成许多振荡以达到收敛。但是每个step中，计算SGD比使用GD更快，因为它仅使用一个训练示例（相对于GD的整个批次）。
+
+![image-20240626225704314](images/image-20240626225704314.png)
+
+**注意**：实现SGD总共需要3个for循环：
+1.迭代次数
+2.$m$个训练数据
+3.各层上（要更新所有参数，从($(W^{[1]},b^{[1]}))$到($(W^{[L]},b^{[L]}))$
+
+## 2 Mini-Batch 梯度下降
+
+​	实际上，如果你既不使用整个训练集也不使用一个训练示例来执行每次更新，则通常会得到更快的结果。小批量梯度下降法在每个步骤中使用中间数量的示例。通过小批量梯度下降，你可以遍历小批量，而不是遍历各个训练示例。
+
+![image-20240626230014816](images/image-20240626230014816.png)
+
+**SGD vs Mini-Batch GD**
+	“+”表示损失的最小值。在优化算法中使用mini-batch批处理通常可以加快优化速度。
+
+**你应该记住**：
+
+- 梯度下降，小批量梯度下降和随机梯度下降之间的差异是用于执行一个更新步骤的数据数量。
+- 必须调整超参数学习率$α$。
+- 在小批量的情况下，通常它会胜过梯度下降或随机梯度下降（尤其是训练集较大时）。
+
+如何从训练集（X，Y）中构建小批次数据。
+
+分两个步骤：
+
+- **Shuffle**(打乱次序)：如下所示，创建训练集（X，Y）的随机打乱版本。X和Y中的每一列代表一个训练示例。注意，随机打乱是在X和Y之间同步完成的。这样，在随机打乱之后，X的$i^{th}$列就是对应于Y中$i^{th}标$签的示例。
+  打乱数据集的目的是为了确保模型训练的泛化能力，避免模型对数据的顺序产生依赖。
+  1. **防止模型学习到数据的顺序**：如果数据是按照某种顺序排列的（例如，根据标签或某个特征排序），模型可能会学习到这个顺序，而不是从数据中学习到真正的模式。
+  2. **提高模型的鲁棒性**：通过随机打乱，每个Mini-batch中的样本都是随机选择的，这有助于模型学习到更加鲁棒的特征，不会对特定的数据排列方式过度拟合。
+  3. **均匀分布Mini-batch**：在一些情况下，数据可能会按照类
+
+​	**举个例子**： 假设我们有一个关于手写数字识别的数据集，数据是按照数字顺序排列的，即所有的0在一起，所有的1在一起，依此类推。如果我们不打乱数据，模型在训练的时候可能会先看到很多0，然后是很多1，这可能导致模型在训练初期对某些数字过度拟合。通过打乱数据，我们可以确保每个Mini-batch中包含各种数字的样本，这样模型就可以学习到更加通用的特征，提高其在未知数据上的表现。
+
+![image-20240626230519542](images/image-20240626230519542.png)
+
+- **Partition**(分割)：将打乱后的（X，Y）划分为大小为`mini_batch_size`（此处为64）的小批处理。请注意，训练示例的数量并不总是可以被`mini_batch_size`整除。最后的小批量可能较小，但是你不必担心，当最终的迷你批处理小于完整的`mini_batch_size`时，它将如下图所示：
+
+![image-20240626230605105](images/image-20240626230605105.png)
+
+**练习**：实现`random_mini_batches`。我们为你编码好了shuffling部分。为了帮助你实现partitioning部分，我们为你提供了以下代码，用于选择$1^{st}$和$2^{nd}$小批次的索引：
+
+```python
+first_mini_batch_X = shuffled_X[:, 0 : mini_batch_size] 
+#shuffled_X数组中提取第一个Mini-batch。shuffled_X[:, 0 : mini_batch_size]表示选取所有行（:代表所有行）和从第0列到mini_batch_size列之前的所有列。即提取了从第0列开始的mini_batch_size数量的列。
+second_mini_batch_X = shuffled_X[:, mini_batch_size : 2 * mini_batch_size]  
+#提取第二个Mini-batch。shuffled_X[:, mini_batch_size : 2 * mini_batch_size]表示选取所有行和从mini_batch_size列到2 * mini_batch_size列之前的所有列。如果mini_batch_size是100，那么将提取从第100列到第199列的数据作为第二个Mini-batch。
+...
+```
+
+​	请注意，最后一个小批次的结果可能小于`mini_batch_size=64`。令$⌊s⌋$代表$s$向下舍入到最接近的整数（在Python中为`math.floor（s）`）。若示例总数不是`mini_batch_size = 64`的倍数，则将有$\lfloor \frac{m}{mini\_batch\_size}\rfloor个$带有完整示例的小批次，数量为64最终的一批次中的示例将是$m-mini_\_batch_\_size \times \lfloor \frac{m}{mini\_batch\_size}\rfloor。$
+
+### 打乱算法	
+
+在机器学习中，使用`permutation`列表来重新排列`X`矩阵中的列是一种确保数据随机性的方法，这对于训练过程中的泛化能力是非常重要的。下面我将解释这个过程是如何运行的，以及为什么它会导致数据被打乱。
+
+**原理**： `permutation`列表包含了一个随机序列，这个序列是从0到`m-1`的整数，其中`m`是样本的总数。当我们使用`[:, permutation]`进行索引操作时，NumPy会根据`permutation`列表中的顺序来重新排列`X`矩阵的列。由于`permutation`是随机生成的，所以这个操作会打乱`X`矩阵中列的原始顺序。
+
+**为什么会打乱**： 打乱的原因是因为`permutation`列表是随机生成的，没有遵循任何特定的顺序。这意味着每次生成`permutation`时，列的新顺序都是不可预测的。因此，当我们应用这个随机序列到`X`矩阵时，列的顺序就会被打乱。
+
+**举例说明**： 假设我们有一个小的数据集`X`，它包含5个样本（列）和一些特征（行）：
+
+现在，我们生成一个随机排列`permutation`，假设它是`[2, 4, 0, 3, 1]`。当我们应用这个排列到`X`时：
+
+```PYTHON
+X = [ [x11, x12, x13, x14, x15],
+      [x21, x22, x23, x24, x25],
+      [x31, x32, x33, x34, x35] ]
+
+shuffled_X = X[:, [2, 4, 0, 3, 1]]
+```
+结果shuffled_X将是：
+
+```PYTHON
+shuffled_X = [ [x13, x15, x11, x14, x12],
+               [x23, x25, x21, x24, x22],
+               [x33, x35, x31, x34, x32] ]
+```
+
+```PYTHON
+def random_mini_batches(X, Y, mini_batch_size = 64, seed = 0):
+    """
+    Creates a list of random minibatches from (X, Y)
+    
+    Arguments:
+    X -- input data, of shape (input size, number of examples)
+    Y -- true "label" vector (1 for blue dot / 0 for red dot), of shape (1, number of examples)
+    mini_batch_size -- size of the mini-batches, integer
+    
+    Returns:
+    mini_batches -- list of synchronous (mini_batch_X, mini_batch_Y)
+    """
+    
+    np.random.seed(seed)            # To make your "random" minibatches the same as ours
+    m = X.shape[1]                  # number of training examples
+    mini_batches = []
+        
+    # Step 1: Shuffle (X, Y)
+    #使用np.random.permutation函数生成一个从0到m-1的随机排列的数组，转换成一个列表，被存储在permutation。
+    permutation = list(np.random.permutation(m))
+    #使用permutation列表来重新排列X矩阵中的列。X是一个包含所有输入特征的矩阵，每一列代表一个训练样本。通过索引操作[:, permutation]，X矩阵中的列被按照permutation列表中的顺序重新排列，从而打乱原始数据集的顺序。
+    #原理上方说明
+    shuffled_X = X[:, permutation]
+    #使用相同的permutation列表来重新排列Y矩阵中的列，Y是一个包含所有标签的矩阵。然后使用reshape((1,m))方法将Y矩阵重塑成一个形状为(1,m)的二维数组。
+    shuffled_Y = Y[:, permutation].reshape((1,m))
+
+    # Step 2: Partition (shuffled_X, shuffled_Y). Minus the end case.
+    #计算可以！完整！分割的Mini-batch的数量。math.floor向下取整函数。
+    num_complete_minibatches = math.floor(m/mini_batch_size) # number of mini batches of size mini_batch_size in your partitionning
+    for k in range(0, num_complete_minibatches):
+        ### START CODE HERE ### (approx. 2 lines)
+        mini_batch_X = shuffled_X[:, k * mini_batch_size : (k+1) * mini_batch_size]
+        mini_batch_Y = shuffled_Y[:, k * mini_batch_size : (k+1) * mini_batch_size]
+        ### END CODE HERE ###
+        mini_batch = (mini_batch_X, mini_batch_Y)
+        mini_batches.append(mini_batch) #列表
+
+    # Handling the end case (last mini-batch < mini_batch_size)
+    if m % mini_batch_size != 0: #m不能被mini_batch_size整除，说明有剩余的样本。
+        ### START CODE HERE ### (approx. 2 lines)
+        #处理最后一个mini_batch，它的大小小于mini_batch_size。
+        mini_batch_X = shuffled_X[:, num_complete_minibatches * mini_batch_size : m]
+        mini_batch_Y = shuffled_Y[:, num_complete_minibatches * mini_batch_size : m]
+        ### END CODE HERE ###
+        mini_batch = (mini_batch_X, mini_batch_Y)
+        mini_batches.append(mini_batch)
+
+    return mini_batches
+
+X_assess, Y_assess, mini_batch_size = random_mini_batches_test_case()
+mini_batches = random_mini_batches(X_assess, Y_assess, mini_batch_size)
+
+print ("shape of the 1st mini_batch_X: " + str(mini_batches[0][0].shape))
+print ("shape of the 2nd mini_batch_X: " + str(mini_batches[1][0].shape))
+print ("shape of the 3rd mini_batch_X: " + str(mini_batches[2][0].shape))
+print ("shape of the 1st mini_batch_Y: " + str(mini_batches[0][1].shape))
+print ("shape of the 2nd mini_batch_Y: " + str(mini_batches[1][1].shape)) 
+print ("shape of the 3rd mini_batch_Y: " + str(mini_batches[2][1].shape))#智能二维转一维
+print ("mini batch sanity check: " + str(mini_batches[0][0][0][0:3]))
+```
+
+```PYTHON
+mini_batches[0][0][0][0:3]
+```
+
+- `mini_batches[0]`：这会选择`mini_batches`列表中的第一个元素，即第一个Mini-batch。
+- `mini_batches[0][0]`：因为每个Mini-batch是一个包含两个元素的元组（`X`数据和`Y`数据），这里选择的是第一个Mini-batch中的`X`数据。
+- `mini_batches[0][0][0]`：假设`X`数据是一个多维数组，这里选择的是`X`数据的第一行。
+- `mini_batches[0][0][0][0:3]`：最后，这个表达式使用切片操作`[0:3]`来选择第一行中的前三个元素。
+
+所以，整个表达式`mini_batches[0][0][0][0:3]`的意思是从第一个Mini-batch的`X`数据中提取第一行的前三个元素。
+
+output：
+
+```PYTHON
+shape of the 1st mini_batch_X: (12288, 64)
+shape of the 2nd mini_batch_X: (12288, 64)
+shape of the 3rd mini_batch_X: (12288, 20)
+shape of the 1st mini_batch_Y: (1, 64)
+shape of the 2nd mini_batch_Y: (1, 64)
+shape of the 3rd mini_batch_Y: (1, 20)
+mini batch sanity check: [ 0.90085595 -0.7612069   0.2344157 ]
+```
+
+- Shuffling和Partitioning是构建小批次数据所需的两个步骤
+- 通常选择2的幂作为最小批量大小，例如16、32、64、128。
+
+## 3 Momentum
+
+​	冲量（Momentum）是一种用于加速梯度下降算法的技术，特别是在面对小批量（Mini-batch）数据时。在小批量梯度下降中，每次更新参数时只考虑了一个子集的样本，这可能导致更新的方向不是最优的，因为它只代表了数据的一个小部分。这就像是在嘈杂的环境中寻找最佳路径，会有很多不必要的波动和转弯。冲量方法通过考虑过去梯度的信息来减少这种波动，使得参数更新的路径更加平滑。
+
+​	**冲量的工作原理**： 冲量方法将过去梯度的指数加权平均值作为当前更新的一部分。这意味着不仅当前的梯度会影响更新，过去的梯度也会以一定的比例影响更新。这可以用以下公式表示：
+$$
+v_{t} = \beta v_{t-1} + (1 - \beta) \nabla_{\theta}J(\theta) 
+$$
+
+$$
+\theta = \theta - \alpha v_{t}
+$$
+
+​	其中，($ v_{t}$ ) 是当前的冲量，( $\beta$ ) 是冲量的超参数（通常设置为接近1的值，如0.9），( $\nabla_{\theta}J(\theta)$ ) 是当前梯度，( $\theta $) 是参数，( $\alpha$ ) 是学习率。
+
+![image-20240626235130124](images/image-20240626235130124.png)
+
+红色箭头显示了带冲量的小批次梯度下降步骤所采取的方向。蓝点表示每一步的梯度方向（相对于当前的小批量）。让梯度影响$v$而不是仅遵循梯度，然后朝$v$的方向迈出一步。
+
+**为什么使用冲量**：
+
+- **减少振荡**：冲量可以减少参数更新过程中的振荡，使得梯度下降路径更加平滑。
+- **加速收敛**：冲量有助于加速梯度下降的收敛速度，特别是在梯度的方向一致时。
+- **逃离局部最小值**：冲量可以帮助算法逃离不是很好的局部最小值，因为累积的冲量可能足以推动参数跳出局部最小值。
+
+**举例说明**： 想象一个小球在一个有凹凸不平的表面上滚动，目标是找到最低点。如果没有冲量，小球可能会在每个小坑里停下来，这些小坑代表局部最小值。但是，如果小球有冲量，即使它进入一个小坑，之前积累的速度也可能足以让它跳出小坑，继续向更低的地方移动。在梯度下降中，这意味着即使当前的梯度很小，之前积累的梯度也可以帮助参数继续向最小值方向移动。
+
+**练习**：初始化速度。速度v是一个Python字典，需要使用零数组进行初始化。它的键与grads词典中的键相同，即：为$l=1,...,L：$
+
+```PYTHON
+v["dW" + str(l+1)] = ... #(numpy array of zeros with the same shape as parameters["W" + str(l+1)])  
+v["db" + str(l+1)] = ... #(numpy array of zeros with the same shape as parameters["b" + str(l+1)])
+```
+
+**注意**：迭代器l在for循环中从0开始，而第一个参数是v["dW1"]和v["db1"]（在上标中为“1”）。这就是为什么我们在“for”循环中将`l`转换为`l+1`的原因。
+
+```PYTHON
+# GRADED FUNCTION: initialize_velocity
+
+def initialize_velocity(parameters):
+    """
+    Initializes the velocity as a python dictionary with:
+                - keys: "dW1", "db1", ..., "dWL", "dbL" 
+                - values: numpy arrays of zeros of the same shape as the corresponding gradients/parameters.
+    Arguments:
+    parameters -- python dictionary containing your parameters.
+                    parameters['W' + str(l)] = Wl
+                    parameters['b' + str(l)] = bl
+    
+    Returns:
+    v -- python dictionary containing the current velocity.
+                    v['dW' + str(l)] = velocity of dWl
+                    v['db' + str(l)] = velocity of dbl
+    """
+    
+    L = len(parameters) // 2 # number of layers in the neural networks
+    v = {}
+    
+    # Initialize velocity
+    for l in range(L):
+        ### START CODE HERE ### (approx. 2 lines)
+        v["dW" + str(l+1)] = np.zeros(parameters['W' + str(l+1)].shape)
+        v["db" + str(l+1)] = np.zeros(parameters['b' + str(l+1)].shape)
+        ### END CODE HERE ###
+        
+    return v
+
+parameters = initialize_velocity_test_case()
+
+v = initialize_velocity(parameters)
+print("v[\"dW1\"] = " + str(v["dW1"]))
+print("v[\"db1\"] = " + str(v["db1"]))
+print("v[\"dW2\"] = " + str(v["dW2"]))
+print("v[\"db2\"] = " + str(v["db2"]))
+```
+
+output：
+
+```PYTHON
+v["dW1"] = [[0. 0. 0.]
+ [0. 0. 0.]]
+v["db1"] = [[0.]
+ [0.]]
+v["dW2"] = [[0. 0. 0.]
+ [0. 0. 0.]
+ [0. 0. 0.]]
+v["db2"] = [[0.]
+ [0.]
+ [0.]]
+```
+
+**练习**：实现带冲量的参数更新。冲量更新规则是，对于$l=1,...,L$:
+$$
+\begin{cases}  
+v_{dW^{[l]}} = \beta v_{dW^{[l]}} + (1 - \beta) dW^{[l]} \\  
+W^{[l]} = W^{[l]} - \alpha v_{dW^{[l]}}  
+\end{cases}\tag{3}
+$$
+
+$$
+\begin{cases}  
+v_{db^{[l]}} = \beta v_{db^{[l]}} + (1 - \beta) db^{[l]} \\  
+b^{[l]} = b^{[l]} - \alpha v_{db^{[l]}}   
+\end{cases}\tag{4}
+$$
+
+​	其中L是层数，β是动量，α是学习率。所有参数都应存储在`parameters`字典中。请注意，迭代器`l`在`for`循环中从0开始，而第一个参数是$W^{[1]}$和$b^{[1]}$（在上标中为“1”）。因此，编码时需要将`l`转化至`l+1`。
+
+- $( dW^{[l]} )$：这是第( l )层权重参数的梯度，它衡量了损失函数相对于权重的变化率。在数学上，它是损失函数对权重的偏导数。
+- $( db^{[l]} )$：这是第( l )层偏置参数的梯度，它衡量了损失函数相对于偏置的变化率。同样地，它是损失函数对偏置的偏导数。
+
+​	关于**学习笔记**中举出的例子，仅仅为了方便理解。
+
+​	在实际应用中，我们不一定希望 **dw** 或 **db** 中的任何一个变化更大或更小。相反，我们希望通过适当的学习率和动量参数来调整它们，使模型能够稳定地收敛到最小损失。
+
+​	使用动量的优化算法（如您提到的冲量更新规则）有助于平滑梯度的变化，避免因梯度波动过大而导致的不稳定更新。动量项 **β** 起到了一个平滑器的作用，它会累积过去梯度的信息，从而在更新参数时考虑历史梯度，这有助于加速学习过程并减少震荡。
+
+​	在选择 **β** 和 **α**（学习率）时，通常需要通过实验来找到最佳值。一个较高的 **β**（接近1）会使动量效果更强，有助于平滑梯度更新，但也可能导致过去的梯度对当前更新的影响过大。一个较低的 **β** 会减少这种影响。学习率 **α** 控制了每次更新的步长，过高可能导致震荡，过低则可能导致学习过程缓慢。
+
+```PYTHON
+# GRADED FUNCTION: update_parameters_with_momentum
+
+def update_parameters_with_momentum(parameters, grads, v, beta, learning_rate):
+    """
+    Update parameters using Momentum
+    
+    Arguments:
+    parameters -- python dictionary containing your parameters:
+                    parameters['W' + str(l)] = Wl
+                    parameters['b' + str(l)] = bl
+    grads -- python dictionary containing your gradients for each parameters:
+                    grads['dW' + str(l)] = dWl
+                    grads['db' + str(l)] = dbl
+    v -- python dictionary containing the current velocity:
+                    v['dW' + str(l)] = ...
+                    v['db' + str(l)] = ...
+    beta -- the momentum hyperparameter, scalar
+    learning_rate -- the learning rate, scalar
+    
+    Returns:
+    parameters -- python dictionary containing your updated parameters 
+    v -- python dictionary containing your updated velocities
+    """
+
+    L = len(parameters) // 2 # number of layers in the neural networks
+    
+    # Momentum update for each parameter
+    for l in range(L):
+        
+        ### START CODE HERE ### (approx. 4 lines)
+        # compute velocities
+        v["dW" + str(l + 1)] = beta*v["dW" + str(l + 1)]+(1-beta)*grads['dW' + str(l+1)]
+        v["db" + str(l + 1)] = beta*v["db" + str(l + 1)]+(1-beta)*grads['db' + str(l+1)]
+        # update parameters
+        parameters["W" + str(l + 1)] = parameters['W' + str(l+1)] - learning_rate*v["dW" + str(l + 1)] 
+        parameters["b" + str(l + 1)] = parameters['b' + str(l+1)] - learning_rate*v["db" + str(l + 1)] 
+        ### END CODE HERE ###
+        
+    return parameters, v
+
+parameters, grads, v = update_parameters_with_momentum_test_case()
+
+parameters, v = update_parameters_with_momentum(parameters, grads, v, beta = 0.9, learning_rate = 0.01)
+print("W1 = " + str(parameters["W1"]))
+print("b1 = " + str(parameters["b1"]))
+print("W2 = " + str(parameters["W2"]))
+print("b2 = " + str(parameters["b2"]))
+print("v[\"dW1\"] = " + str(v["dW1"]))
+print("v[\"db1\"] = " + str(v["db1"]))
+print("v[\"dW2\"] = " + str(v["dW2"]))
+print("v[\"db2\"] = " + str(v["db2"]))
+```
+
+output:
+
+```PYTHON
+W1 = [[ 1.62544598 -0.61290114 -0.52907334]
+ [-1.07347112  0.86450677 -2.30085497]]
+b1 = [[ 1.74493465]
+ [-0.76027113]]
+W2 = [[ 0.31930698 -0.24990073  1.4627996 ]
+ [-2.05974396 -0.32173003 -0.38320915]
+ [ 1.13444069 -1.0998786  -0.1713109 ]]
+b2 = [[-0.87809283]
+ [ 0.04055394]
+ [ 0.58207317]]
+v["dW1"] = [[-0.11006192  0.11447237  0.09015907]
+ [ 0.05024943  0.09008559 -0.06837279]]
+v["db1"] = [[-0.01228902]
+ [-0.09357694]]
+v["dW2"] = [[-0.02678881  0.05303555 -0.06916608]
+ [-0.03967535 -0.06871727 -0.08452056]
+ [-0.06712461 -0.00126646 -0.11173103]]
+v["db2"] = [[0.02344157]
+ [0.16598022]
+ [0.07420442]]
+```
+
+
+
+**注意**：
+
+- 速度用零初始化。因此，该算法将花费一些迭代来“提高”速度并开始采取更大的步骤。
+- 如果$β=0$，则它变为没有冲量的标准梯度下降。
+
+**怎样选择β?**
+
+- 冲量$β$越大，更新越平滑，因为我们对过去的梯度的考虑也更多。但是，如果$β$太大，也可能使更新变得过于平滑。
+- $β$的常用值范围是0.8到0.999。如果你不想调整它，则$β=0.9$通常是一个合理的默认值。
+- 调整模型的最佳$β$可能需要尝试几个值，以了解在降低损失函数J的值方面最有效的方法。
+
+**你应该记住**：
+
+- 冲量将过去的梯度考虑在内，以平滑梯度下降的步骤。它可以应用于批量梯度下降，小批次梯度下降或随机梯度下降。
+- 必须调整冲量超参数$β$和学习率$α$。
