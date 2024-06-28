@@ -2042,3 +2042,476 @@ v["db2"] = [[0.02344157]
 
 - 冲量将过去的梯度考虑在内，以平滑梯度下降的步骤。它可以应用于批量梯度下降，小批次梯度下降或随机梯度下降。
 - 必须调整冲量超参数$β$和学习率$α$。
+
+## 4 Adam
+
+Adam是训练神经网络最有效的优化算法之一。它结合了RMSProp和Momentum的优点。
+
+### **Adam原理**
+
+1.计算过去梯度的指数加权平均值，并将其存储在变量v（使用偏差校正之前）和$v^{corrected}$ （使用偏差校正）中。
+2.计算过去梯度的平方的指数加权平均值，并将其存储在变量s（偏差校正之前）和$s^{corrected}$（偏差校正中）中。
+3.组合“1”和“2”的信息，在一个方向上更新参数。
+
+对于$l=1,...,L$，更新规则为：
+$$
+\begin{cases}  
+v_{dW^{[l]}} = \beta_1 v_{dW^{[l]}} + (1 - \beta_1) \frac{\partial \mathcal{J} }{ \partial W^{[l]} } \\  
+v^{corrected}_{dW^{[l]}} = \frac{v_{dW^{[l]}}}{1 - (\beta_1)^t} \\  
+s_{dW^{[l]}} = \beta_2 s_{dW^{[l]}} + (1 - \beta_2) (\frac{\partial \mathcal{J} }{\partial W^{[l]} })^2 \\  
+s^{corrected}_{dW^{[l]}} = \frac{s_{dW^{[l]}}}{1 - (\beta_1)^t} \\  
+W^{[l]} = W^{[l]} - \alpha \frac{v^{corrected}_{dW^{[l]}}}{\sqrt{s^{corrected}_{dW^{[l]}}} + \varepsilon}  
+\end{cases}
+$$
+其中：
+
+- t计算出Adam采取的步骤数
+- L是层数
+- $β_1$和$β_2$是控制两个指数加权平均值的超参数。
+- $α$是学习率
+- $ε$是一个很小的数字，以避免被零除
+
+和之前一样，我们将所有参数存储在`parameters`字典中
+
+**练习**：初始化跟踪过去信息的Adam变量$v,s$
+
+**说明**：变量$v,s$是需要用零数组初始化的python字典。它们的key与`grads`的key相同，即：
+对于$l=1,...,L$：
+
+```python
+v["dW" + str(l+1)] = ... #(numpy array of zeros with the same shape as parameters["W" + str(l+1)])  
+v["db" + str(l+1)] = ... #(numpy array of zeros with the same shape as parameters["b" + str(l+1)])  
+s["dW" + str(l+1)] = ... #(numpy array of zeros with the same shape as parameters["W" + str(l+1)])  
+s["db" + str(l+1)] = ... #(numpy array of zeros with the same shape as parameters["b" + str(l+1)])
+```
+
+```python
+def initialize_adam(parameters) :
+    """
+    Initializes v and s as two python dictionaries with:
+                - keys: "dW1", "db1", ..., "dWL", "dbL" 
+                - values: numpy arrays of zeros of the same shape as the corresponding gradients/parameters.
+    
+    Arguments:
+    parameters -- python dictionary containing your parameters.
+                    parameters["W" + str(l)] = Wl
+                    parameters["b" + str(l)] = bl
+    
+    Returns: 
+    v -- python dictionary that will contain the exponentially weighted average of the gradient.
+                    v["dW" + str(l)] = ...
+                    v["db" + str(l)] = ...
+    s -- python dictionary that will contain the exponentially weighted average of the squared gradient.
+                    s["dW" + str(l)] = ...
+                    s["db" + str(l)] = ...
+
+    """
+    
+    L = len(parameters) // 2 # number of layers in the neural networks
+    v = {}
+    s = {}
+    
+    # Initialize v, s. Input: "parameters". Outputs: "v, s".
+    for l in range(L):
+    ### START CODE HERE ### (approx. 4 lines)
+        v["dW" + str(l + 1)] = np.zeros(parameters["W" + str(l+1)].shape)
+        v["db" + str(l + 1)] = np.zeros(parameters["b" + str(l+1)].shape)
+        s["dW" + str(l + 1)] = np.zeros(parameters["W" + str(l+1)].shape)
+        s["db" + str(l + 1)] = np.zeros(parameters["b" + str(l+1)].shape)
+        ### END CODE HERE ###
+    
+    return v, s
+
+
+parameters = initialize_adam_test_case()
+
+v, s = initialize_adam(parameters)
+print("v[\"dW1\"] = " + str(v["dW1"]))
+print("v[\"db1\"] = " + str(v["db1"]))
+print("v[\"dW2\"] = " + str(v["dW2"]))
+print("v[\"db2\"] = " + str(v["db2"]))
+print("s[\"dW1\"] = " + str(s["dW1"]))
+print("s[\"db1\"] = " + str(s["db1"]))
+print("s[\"dW2\"] = " + str(s["dW2"]))
+print("s[\"db2\"] = " + str(s["db2"]))
+```
+
+output：
+
+```PYTHON
+v["dW1"] = [[0. 0. 0.]
+ [0. 0. 0.]]
+v["db1"] = [[0.]
+ [0.]]
+v["dW2"] = [[0. 0. 0.]
+ [0. 0. 0.]
+ [0. 0. 0.]]
+v["db2"] = [[0.]
+ [0.]
+ [0.]]
+s["dW1"] = [[0. 0. 0.]
+ [0. 0. 0.]]
+s["db1"] = [[0.]
+ [0.]]
+s["dW2"] = [[0. 0. 0.]
+ [0. 0. 0.]
+ [0. 0. 0.]]
+s["db2"] = [[0.]
+ [0.]
+ [0.]]
+```
+
+**练习**：用Adam实现参数更新。回想一下一般的更新规则是，对于$l=1,...,L$:
+$$
+\begin{cases}  
+v_{W^{[l]}} = \beta_1 v_{W^{[l]}} + (1 - \beta_1) \frac{\partial J }{ \partial W^{[l]} } \\  
+v^{corrected}_{W^{[l]}} = \frac{v_{W^{[l]}}}{1 - (\beta_1)^t} \\  
+s_{W^{[l]}} = \beta_2 s_{W^{[l]}} + (1 - \beta_2) (\frac{\partial J }{\partial W^{[l]} })^2 \\  
+s^{corrected}_{W^{[l]}} = \frac{s_{W^{[l]}}}{1 - (\beta_2)^t} \\  
+W^{[l]} = W^{[l]} - \alpha \frac{v^{corrected}_{W^{[l]}}}{\sqrt{s^{corrected}_{W^{[l]}}}+\varepsilon}  
+\end{cases}
+$$
+**注意**:迭代器 `l` 在 `for` 循环中从0开始，而第一个参数是$W_{[1]}$和$b_{[1]}$。编码时需要将`l`转换为 `l+1` 。
+
+```PYTHON
+# GRADED FUNCTION: update_parameters_with_adam
+
+def update_parameters_with_adam(parameters, grads, v, s, t, learning_rate = 0.01,
+                                beta1 = 0.9, beta2 = 0.999,  epsilon = 1e-8):
+    """
+    Update parameters using Adam
+    
+    Arguments:
+    parameters -- python dictionary containing your parameters:
+                    parameters['W' + str(l)] = Wl
+                    parameters['b' + str(l)] = bl
+    grads -- python dictionary containing your gradients for each parameters:
+                    grads['dW' + str(l)] = dWl
+                    grads['db' + str(l)] = dbl
+    v -- Adam variable, moving average of the first gradient, python dictionary
+    s -- Adam variable, moving average of the squared gradient, python dictionary
+    learning_rate -- the learning rate, scalar.
+    beta1 -- Exponential decay hyperparameter for the first moment estimates 
+    beta2 -- Exponential decay hyperparameter for the second moment estimates 
+    epsilon -- hyperparameter preventing division by zero in Adam updates
+
+    Returns:
+    parameters -- python dictionary containing your updated parameters 
+    v -- Adam variable, moving average of the first gradient, python dictionary
+    s -- Adam variable, moving average of the squared gradient, python dictionary
+    """
+    
+    L = len(parameters) // 2                 # number of layers in the neural networks
+    v_corrected = {}                         # Initializing first moment estimate, python dictionary
+    s_corrected = {}                         # Initializing second moment estimate, python dictionary
+    
+    # Perform Adam update on all parameters
+    for l in range(L):
+        # Moving average of the gradients. Inputs: "v, grads, beta1". Output: "v".
+        ### START CODE HERE ### (approx. 2 lines)
+        v["dW" + str(l + 1)] = beta1*v["dW" + str(l + 1)] +(1-beta1)*grads['dW' + str(l+1)]
+        v["db" + str(l + 1)] = beta1*v["db" + str(l + 1)] +(1-beta1)*grads['db' + str(l+1)]
+        ### END CODE HERE ###
+
+        # Compute bias-corrected first moment estimate. Inputs: "v, beta1, t". Output: "v_corrected".
+        ### START CODE HERE ### (approx. 2 lines)
+        v_corrected["dW" + str(l + 1)] = v["dW" + str(l + 1)]/(1-(beta1)**t)
+        v_corrected["db" + str(l + 1)] = v["db" + str(l + 1)]/(1-(beta1)**t)
+        ### END CODE HERE ###
+
+        # Moving average of the squared gradients. Inputs: "s, grads, beta2". Output: "s".
+        ### START CODE HERE ### (approx. 2 lines)
+        s["dW" + str(l + 1)] =beta2*s["dW" + str(l + 1)] + (1-beta2)*(grads['dW' + str(l+1)]**2)
+        s["db" + str(l + 1)] = beta2*s["db" + str(l + 1)] + (1-beta2)*(grads['db' + str(l+1)]**2)
+        ### END CODE HERE ###
+
+        # Compute bias-corrected second raw moment estimate. Inputs: "s, beta2, t". Output: "s_corrected".
+        ### START CODE HERE ### (approx. 2 lines)
+        s_corrected["dW" + str(l + 1)] =s["dW" + str(l + 1)]/(1-(beta2)**t)
+        s_corrected["db" + str(l + 1)] = s["db" + str(l + 1)]/(1-(beta2)**t)
+        ### END CODE HERE ###
+
+        # Update parameters. Inputs: "parameters, learning_rate, v_corrected, s_corrected, epsilon". Output: "parameters".
+        ### START CODE HERE ### (approx. 2 lines)
+        parameters["W" + str(l + 1)] = parameters["W" + str(l + 1)]-learning_rate*(v_corrected["dW" + str(l + 1)]/np.sqrt( s_corrected["dW" + str(l + 1)]+epsilon))
+        parameters["b" + str(l + 1)] = parameters["b" + str(l + 1)]-learning_rate*(v_corrected["db" + str(l + 1)]/np.sqrt( s_corrected["db" + str(l + 1)]+epsilon))
+        ### END CODE HERE ###
+        
+    return parameters, v, s
+
+
+parameters, grads, v, s = update_parameters_with_adam_test_case()
+parameters, v, s  = update_parameters_with_adam(parameters, grads, v, s, t = 2)
+
+print("W1 = " + str(parameters["W1"]))
+print("b1 = " + str(parameters["b1"]))
+print("W2 = " + str(parameters["W2"]))
+print("b2 = " + str(parameters["b2"]))
+print("v[\"dW1\"] = " + str(v["dW1"]))
+print("v[\"db1\"] = " + str(v["db1"]))
+print("v[\"dW2\"] = " + str(v["dW2"]))
+print("v[\"db2\"] = " + str(v["db2"]))
+print("s[\"dW1\"] = " + str(s["dW1"]))
+print("s[\"db1\"] = " + str(s["db1"]))
+print("s[\"dW2\"] = " + str(s["dW2"]))
+print("s[\"db2\"] = " + str(s["db2"]))
+```
+
+output:
+
+```PYTHON
+W1 = [[ 1.63178673 -0.61919778 -0.53561312]
+ [-1.08040999  0.85796626 -2.29409733]]
+b1 = [[ 1.75225313]
+ [-0.75376553]]
+W2 = [[ 0.32648046 -0.25681174  1.46954931]
+ [-2.05269934 -0.31497584 -0.37661299]
+ [ 1.14121081 -1.09245036 -0.16498684]]
+b2 = [[-0.88529978]
+ [ 0.03477238]
+ [ 0.57537385]]
+v["dW1"] = [[-0.11006192  0.11447237  0.09015907]
+ [ 0.05024943  0.09008559 -0.06837279]]
+v["db1"] = [[-0.01228902]
+ [-0.09357694]]
+v["dW2"] = [[-0.02678881  0.05303555 -0.06916608]
+ [-0.03967535 -0.06871727 -0.08452056]
+ [-0.06712461 -0.00126646 -0.11173103]]
+v["db2"] = [[0.02344157]
+ [0.16598022]
+ [0.07420442]]
+s["dW1"] = [[0.00121136 0.00131039 0.00081287]
+ [0.0002525  0.00081154 0.00046748]]
+s["db1"] = [[1.51020075e-05]
+ [8.75664434e-04]]
+s["dW2"] = [[7.17640232e-05 2.81276921e-04 4.78394595e-04]
+ [1.57413361e-04 4.72206320e-04 7.14372576e-04]
+ [4.50571368e-04 1.60392066e-07 1.24838242e-03]]
+s["db2"] = [[5.49507194e-05]
+ [2.75494327e-03]
+ [5.50629536e-04]]
+```
+
+## 5 不同优化算法的模型
+
+​	我们使用“moons”数据集来测试不同的优化方法。（该数据集被命名为“月亮”，因为两个类别的数据看起来有点像月牙。）
+
+```python
+train_X, train_Y = load_dataset()
+```
+
+![image-20240628102125539](images/image-20240628102125539.png)
+
+我们已经实现了一个三层的神经网络。你将使用以下方法进行训练：
+
+- 小批次 **Gradient Descent**:它将调用你的函数：
+     \- `update_parameters_with_gd（）`
+- 小批次 **冲量**：它将调用你的函数：
+     \- `initialize_velocity（）`和`update_parameters_with_momentum（）`
+- 小批次 **Adam**：它将调用你的函数：
+     \- `initialize_adam（）`和`update_parameters_with_adam（）`
+
+```PYTHON
+def model(X, Y, layers_dims, optimizer, learning_rate = 0.0007, mini_batch_size = 64, beta = 0.9,
+          beta1 = 0.9, beta2 = 0.999,  epsilon = 1e-8, num_epochs = 10000, print_cost = True):
+
+    L = len(layers_dims)             # number of layers in the neural networks
+    costs = []                       # to keep track of the cost
+    #t用于跟踪优化过程中的迭代次数，用于EMA偏差修正（bias correction）是必需的。
+    t = 0                            # initializing the counter required for Adam update
+    seed = 10                        # For grading purposes, so that your "random" minibatches are the same as ours
+    
+    # Initialize parameters
+    parameters = initialize_parameters(layers_dims)
+
+    # Initialize the optimizer
+    if optimizer == "gd":
+        pass # no initialization required for gradient descent
+    elif optimizer == "momentum":
+        v = initialize_velocity(parameters)
+    elif optimizer == "adam":
+        v, s = initialize_adam(parameters)
+    
+    # Optimization loop
+    for i in range(num_epochs):
+        
+        # Define the random minibatches. We increment the seed to reshuffle differently the dataset after each epoch
+        seed = seed + 1
+        minibatches = random_mini_batches(X, Y, mini_batch_size, seed)
+
+        for minibatch in minibatches:
+
+            # Select a minibatch
+            (minibatch_X, minibatch_Y) = minibatch
+
+            # Forward propagation
+            a3, caches = forward_propagation(minibatch_X, parameters)
+
+            # Compute cost
+            cost = compute_cost(a3, minibatch_Y)
+
+            # Backward propagation
+            grads = backward_propagation(minibatch_X, minibatch_Y, caches)
+
+            # Update parameters
+            if optimizer == "gd":
+                parameters = update_parameters_with_gd(parameters, grads, learning_rate)
+            elif optimizer == "momentum":
+                parameters, v = update_parameters_with_momentum(parameters, grads, v, beta, learning_rate)
+            elif optimizer == "adam":
+                t = t + 1 # Adam counter
+                parameters, v, s = update_parameters_with_adam(parameters, grads, v, s,
+                                                               t, learning_rate, beta1, beta2,  epsilon)
+        
+        # Print the cost every 1000 epoch
+        if print_cost and i % 1000 == 0:
+            print ("Cost after epoch %i: %f" %(i, cost))
+        if print_cost and i % 100 == 0:
+            costs.append(cost)
+                
+    # plot the cost
+    plt.plot(costs)
+    plt.ylabel('cost')
+    plt.xlabel('epochs (per 100)')
+    plt.title("Learning rate = " + str(learning_rate))
+    plt.show()
+
+    return parameters
+```
+
+### 5.1 小批量梯度下降
+
+​	运行以下代码以查看模型如何进行小批量梯度下降。
+
+```python
+# train 3-layer model
+layers_dims = [train_X.shape[0], 5, 2, 1]
+parameters = model(train_X, train_Y, layers_dims, optimizer = "gd")
+
+# Predict
+predictions = predict(train_X, train_Y, parameters)
+
+# Plot decision boundary
+plt.title("Model with Gradient Descent optimization")
+axes = plt.gca()
+axes.set_xlim([-1.5,2.5])
+axes.set_ylim([-1,1.5])
+plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y)
+```
+
+output:
+
+```python
+Cost after epoch 0: 0.690736
+Cost after epoch 1000: 0.685273
+Cost after epoch 2000: 0.647072
+Cost after epoch 3000: 0.619525
+Cost after epoch 4000: 0.576584
+Cost after epoch 5000: 0.607243
+Cost after epoch 6000: 0.529403
+Cost after epoch 7000: 0.460768
+Cost after epoch 8000: 0.465586
+Cost after epoch 9000: 0.464518
+Accuracy: 0.7966666666666666
+```
+
+![image-20240628102815987](images/image-20240628102815987.png)
+
+![image-20240628102829904](images/image-20240628102829904.png)
+
+### 5.2 带冲量的小批量梯度下降
+
+​	运行以下代码，以查看模型如何使用冲量。因为此示例相对简单，所以使用冲量的收益很小。但是对于更复杂的问题，可能会看到更大的收获。
+
+```PYTHON
+# train 3-layer model
+layers_dims = [train_X.shape[0], 5, 2, 1]
+parameters = model(train_X, train_Y, layers_dims, beta = 0.9, optimizer = "momentum")
+
+# Predict
+predictions = predict(train_X, train_Y, parameters)
+
+# Plot decision boundary
+plt.title("Model with Momentum optimization")
+axes = plt.gca()
+axes.set_xlim([-1.5,2.5])
+axes.set_ylim([-1,1.5])
+plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y)
+```
+
+output:
+
+```python
+Cost after epoch 0: 0.690741
+Cost after epoch 1000: 0.685341
+Cost after epoch 2000: 0.647145
+Cost after epoch 3000: 0.619594
+Cost after epoch 4000: 0.576665
+Cost after epoch 5000: 0.607324
+Cost after epoch 6000: 0.529476
+Cost after epoch 7000: 0.460936
+Cost after epoch 8000: 0.465780
+Cost after epoch 9000: 0.464740
+Accuracy: 0.7966666666666666
+```
+
+![image-20240628102918953](images/image-20240628102918953.png)
+
+![image-20240628102935468](images/image-20240628102935468.png)
+
+### 5.3 Adam模式的小批量梯度下降
+
+​	运行以下代码以查看使用Adam的模型表现
+
+```python
+# train 3-layer model
+layers_dims = [train_X.shape[0], 5, 2, 1]
+parameters = model(train_X, train_Y, layers_dims, optimizer = "adam")
+
+# Predict
+predictions = predict(train_X, train_Y, parameters)
+
+# Plot decision boundary
+plt.title("Model with Adam optimization")
+axes = plt.gca()
+axes.set_xlim([-1.5,2.5])
+axes.set_ylim([-1,1.5])
+plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y)
+```
+
+output:
+
+```python
+Cost after epoch 0: 0.690552
+Cost after epoch 1000: 0.185501
+Cost after epoch 2000: 0.150830
+Cost after epoch 3000: 0.074454
+Cost after epoch 4000: 0.125959
+Cost after epoch 5000: 0.104344
+Cost after epoch 6000: 0.100676
+Cost after epoch 7000: 0.031652
+Cost after epoch 8000: 0.111973
+Cost after epoch 9000: 0.197940
+Accuracy: 0.94
+```
+
+![image-20240628103016414](images/image-20240628103016414.png)
+
+![image-20240628103021674](images/image-20240628103021674.png)
+
+### 5.4 总结
+
+| 优化方法         | 准确度  | 模型损失 |
+| :--------------- | :------ | :------- |
+| Gradient descent | 79.70％ | 振荡     |
+| Momentum         | 79.70％ | 振荡     |
+| Adam             | 94％    | 更光滑   |
+
+​	冲量通常会有所帮助，但是鉴于学习率低和数据集过于简单，其影响几乎可以忽略不计。同样，你看到损失的巨大波动是因为对于优化算法，某些小批处理比其他小批处理更为困难。
+
+​	另一方面，Adam明显胜过小批次梯度下降和冲量。如果你在此简单数据集上运行更多epoch，则这三种方法都将产生非常好的结果。但是，Adam收敛得更快。
+
+Adam的优势包括：
+
+- 相对较低的内存要求（尽管高于梯度下降和带冲量的梯度下降）
+- 即使很少调整超参数，通常也能很好地工作（$α$除外）
