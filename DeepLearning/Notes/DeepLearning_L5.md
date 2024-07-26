@@ -830,7 +830,7 @@ $$
 1. **均衡步骤的目的**：
    - **减少偏见**：对于一些词对（如 “grandmother” 和 “grandfather” 或 “girl” 和 “boy”），我们希望它们的词嵌入只在性别上有所区别，而在其他方面保持相似。这是为了避免不良的性别偏见，例如 “babysitter” 更接近 “grandmother” 而不是 “grandfather”。
 2. **为什么需要均衡**：
-   - **避免不良状态**：如果 “babysitter” 和 “grandmother” 之间的距离小于 “babysitter” 和 “grandfather” 之间的距离，这可能会加重性别偏见，暗示 “babysitting” 更适合女性。这种偏见是不合理的，也是不公平的。
+   - **避免不良状态**：如果 “babysitter” 和 “grandmother” 之间的距离小于 “babysitter” 和 “grandfather” 之间的距离，这可能会加重性别偏见，暗示 “babysitting” 更适合女性。
    - **确保公平性**：通过均衡步骤，可以确保词嵌入在性别方面是中立的，不会因为性别而产生不公平的关联。
 
 3. **实现方法**：
