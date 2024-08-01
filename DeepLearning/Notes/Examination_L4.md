@@ -298,3 +298,113 @@ A[i, h, w, c] = activation(Z[i, h, w, c])
 ```
 
 在这里你不需要做这个。
+
+## 2 池化层
+
+### 2.1 正向池化
+
+在同一函数中实现最大池化和平均池化。
+
+池化层（如最大池化）处理多通道输入时，每个通道独立进行池化操作。假设输入特征图有 $(n_c)$ 个通道，每个通道的尺寸为$ (n_H \times n_W)$，池化窗口的尺寸为 $(f \times f)$，步长为 (s)。
+
+**练习**：实现池化层的正向传播。请遵循下述提示。
+
+**提示**：
+由于没有填充，因此将池化的输出维度绑定到输入维度的公式为：
+$$
+n_H = \lfloor \frac{n_{H_{prev}} - f}{stride} \rfloor +1\\
+n_W = \lfloor \frac{n_{W_{prev}} - f}{stride} \rfloor +1\\
+n_C = n_{C_{prev}}
+$$
+
+```python
+# GRADED FUNCTION: pool_forward
+
+def pool_forward(A_prev, hparameters, mode = "max"):
+    """
+    Implements the forward pass of the pooling layer
+    
+    Arguments:
+    A_prev -- Input data, numpy array of shape (m, n_H_prev, n_W_prev, n_C_prev)
+    hparameters -- python dictionary containing "f" and "stride"
+    mode -- the pooling mode you would like to use, defined as a string ("max" or "average")
+    
+    Returns:
+    A -- output of the pool layer, a numpy array of shape (m, n_H, n_W, n_C)
+    cache -- cache used in the backward pass of the pooling layer, contains the input and hparameters 
+    """
+    
+    # Retrieve dimensions from the input shape
+    (m, n_H_prev, n_W_prev, n_C_prev) = A_prev.shape
+    
+    # Retrieve hyperparameters from "hparameters"
+    f = hparameters["f"]
+    stride = hparameters["stride"]
+    
+    # Define the dimensions of the output
+    n_H = int(1 + (n_H_prev - f) / stride) #整数向下取整
+    n_W = int(1 + (n_W_prev - f) / stride)
+    n_C = n_C_prev
+    
+    # Initialize output matrix A
+    A = np.zeros((m, n_H, n_W, n_C))              #输出矩阵 下方返回
+    
+    ### START CODE HERE ###
+    for i in range(m):                         # loop over the training examples
+        for h in range(n_H):                     # loop on the vertical axis of the output volume
+            for w in range(n_W):                 # loop on the horizontal axis of the output volume
+                for c in range (n_C):            # loop over the channels of the output volume
+                    
+                    # Find the corners of the current "slice" (≈4 lines)
+                    vert_start = h * stride
+                    vert_end = vert_start + f
+                    horiz_start = w * stride
+                    horiz_end = horiz_start + f
+                    
+                    # Use the corners to define the current slice on the ith training example of A_prev, channel c. (≈1 line)
+                    a_prev_slice = A_prev[i, vert_start:vert_end, horiz_start:horiz_end, c] #[张、列、行、通道]
+                    
+                    # Compute the pooling operation on the slice. Use an if statment to differentiate the modes. Use np.max/np.mean.
+                    if mode == "max":
+                        A[i, h, w, c] = np.max(a_prev_slice) #填值
+                    elif mode == "average":
+                        A[i, h, w, c] = np.mean(a_prev_slice)
+    
+    ### END CODE HERE ###
+    
+    # Store the input and hparameters in "cache" for pool_backward()
+    cache = (A_prev, hparameters)
+    
+    # Making sure your output shape is correct
+    assert(A.shape == (m, n_H, n_W, n_C))
+    
+    return A, cache
+np.random.seed(1)
+A_prev = np.random.randn(2, 4, 4, 3)
+hparameters = {"stride" : 1, "f": 4}
+
+A, cache = pool_forward(A_prev, hparameters)
+print("mode = max")
+print("A =", A)
+print()
+A, cache = pool_forward(A_prev, hparameters, mode = "average")
+print("mode = average")
+print("A =", A)
+```
+
+output：
+
+```PYTHON
+mode = max
+A = [[[[1.74481176 1.6924546  2.10025514]]]
+
+
+ [[[1.19891788 1.51981682 2.18557541]]]]
+
+mode = average
+A = [[[[-0.09498456  0.11180064 -0.14263511]]]
+
+
+ [[[-0.09525108  0.28325018  0.33035185]]]]
+```
+
