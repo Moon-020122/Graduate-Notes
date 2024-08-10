@@ -14,6 +14,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
 EPOCHS = 50
 
+#BATCH_SIZE = 8
 BATCH_SIZE = 16
 TRAIN_DF_DIR = "./dataset/train.csv"
 TEST_DF_DIR = "./dataset/test.csv"

@@ -1801,7 +1801,7 @@ def yolo_eval(yolo_outputs, image_shape = (720., 1280.), max_boxes=10, score_thr
 
 此文章后面还有一些可视化内容以及测试内容。
 
-# 深度学习与艺术 - 神经风格迁移
+# 人脸识别
 
 人脸识别问题通常分为两类：
 

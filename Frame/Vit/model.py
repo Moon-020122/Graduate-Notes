@@ -19,7 +19,7 @@ class PatchEmbedding(nn.Module): #继承nn.Module
     def forward(self, x): #图像预处理    x: 输入数据即图像数据   
         cls_token = self.cls_token.expand(x.shape[0], -1, -1)
         x = self.patcher(x).permute(0, 2, 1) #卷积操作，展平，维度转换
-        x = torch.cat([cls_token, x], dim = 1) #拼接
+        x = torch.cat([cls_token, x], dim = 1) #拼接cls_token
         x = x + self.position_embedding #添加位置编码
         x = self.dropout(x)
         return x
