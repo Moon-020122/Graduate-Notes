@@ -7,7 +7,7 @@
 
 ![在这里插入图片描述](https://i-blog.csdnimg.cn/blog_migrate/27dfece864f6da3a18d2b2c74e93e2d7.png)
 
-1. **Patch embedding：**例如输入图片大小为$224\times22$，将图片分为固定大小的patch，patch大小为 $16\times16$，则每张图像会生成 $224\times224/16\times16=196$个patch，即输入序列长度为196，每个patch维度$16\times16\times3=768$，线性投射层的维度为$768 \times N (N=768)$，因此输入通过线性投射层之后的维度依然为$196\times768$，即一共有196个token，每个token的维度是768。这里还需要在前面加上一个分类字符cls_token，因此最终的维度是$197\times 768$。到目前为止，已经通过patch embedding将一个视觉问题转化为了一个seq2seq问题。
+1. **Patch embedding：**例如输入图片大小为$224\times224$，将图片分为固定大小的patch，patch大小为 $16\times16$，则每张图像会生成 $224\times224/16\times16=196$个patch，即输入序列长度为196，每个patch维度$16\times16\times3=768$，线性投射层的维度为$768 \times N (N=768)$，因此输入通过线性投射层之后的维度依然为$196\times768$，即一共有196个token，每个token的维度是768。这里还需要在前面加上一个分类字符cls_token，因此最终的维度是$197\times 768$。到目前为止，已经通过patch embedding将一个视觉问题转化为了一个seq2seq问题。
 2. Positional encoding(standard learnable 1D position embeddings)：ViT同样需要加入位置编码，位置编码可以理解为一张表，表一共有N行，N的大小和输入序列长度相同，每一行代表一个向量，向量的维度和输入序列embedding的维度相同(768)。注意位置编码的操作是sum，而不是concat。加入位置编码信息之后，维度依然是$197\times 768$。
 3. **LN/multi-head attention/LN：**LN输出维度依然是$197\times 768$。多头自注意力时，先将输入映射到 $\boldsymbol {q，k，v}$，如果只有一个头，$ \boldsymbol {q，k，v}$的维度都是$ 197\times 768$，如果有12个头( 768 / 12 = 64 ) ，则$\boldsymbol {q，k，v}$的维度是$197\times64$，一共有12组$ \boldsymbol {q，k，v}$，最后再将12组$ \boldsymbol {q，k，v}$的输出拼接起来，输出维度是$197\times 768$，然后在过一层LN，维度依然是$197\times 768$。
 4. **MLP：**将维度放大再缩小回去，197x768放大为197x3072，再缩小变为197x768
@@ -50,6 +50,10 @@ $$
 1. **初始化**：cls_token在模型训练开始时被随机初始化，并随着训练过程不断更新。
 2. **信息汇聚**：cls_token会与图像的patch token一起输入到Transformer中。在每一层的自注意力机制中，cls_token会与其他token进行交互，从而汇聚整个图像的信息。
 3. **分类决策**：在经过多层Transformer编码器后，cls_token会包含整个图像的全局特征。最终，cls_token的输出会通过一个线性分类器（通常是一个全连接层）进行分类预测。
+
+![image-20240816200421933](images/image-20240816200421933.png)
+
+
 
 # QE
 
