@@ -1,6 +1,6 @@
 # Pytorch
 
-## nn.Sequentia
+## nn.Sequential
 
 `nn.Sequentia` 是 PyTorch 中的一个容器模块，用于将多个神经网络层按顺序组合在一起，它的主要作用是简化模型的定义和构建过程，适用于简单的前馈神经网络。
 
@@ -73,6 +73,46 @@ torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0, dil
 7. **`dilation`**：卷积核元素之间的间距，默认为1。可以是单个整数或一个元组，相当在相邻元素之间进行0填充，填充后为矩阵。
 8. **`groups`**：控制输入和输出通道的连接方式，默认为1。`groups=1` 表示标准卷积，`groups=in_channels` 表示深度卷积。
 9. **`bias`**：如果为True，则在输出中添加一个可学习的偏置，默认为True。
+
+卷积层 `nn.Conv2d` 在 PyTorch 中期望输入张量的形状为 `(B, C, H, W)`，即批量大小、通道数、高度和宽度。
+
+## nn.ConvTranspose2d
+
+`nn.ConvTranspose2d` 是 PyTorch 中的一个模块，用于对二维输入数据（通常是图像）执行转置卷积操作。转置卷积也被称为反卷积，但并不是卷积的数学逆运算，反卷积是一种特殊的正向卷积，先按照一定的比例通过补 0 来扩大输入图像的尺寸，接着旋转卷积核，再进行正向卷积。
+
+```python
+torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=1, padding=0, output_padding=0, groups=1, bias=True, dilation=1, padding_mode='zeros', device=None, dtype=None)
+```
+
+- **in_channels (int)**: 输入通道数。
+- **out_channels (int)**: 输出通道数。
+- **kernel_size (int 或 tuple)**: 卷积核的大小。
+- **stride (int 或 tuple, optional)**: 卷积的步幅。默认值为1。
+- **padding (int 或 tuple, optional)**: 输入的每一边补零的数量。默认值为0。
+- **output_padding (int 或 tuple, optional)**: 输出的每一边额外补零的数量。默认值为0。
+- **groups (int, optional)**: 从输入到输出的连接组数。默认值为1。
+- **bias (bool, optional)**: 如果设置为 `True`，则添加一个可学习的偏置。默认值为 `True`。
+- **dilation (int 或 tuple, optional)**: 卷积核元素之间的间距。默认值为1。
+- **padding_mode (string, optional)**: 填充模式。可以是 `zeros`、`reflect`、`replicate` 或 `circular`。默认值为 `zeros`。
+- **device (torch.device, optional)**: 所使用的设备。默认值为 `None`。
+- **dtype (torch.dtype, optional)**: 张量的数据类型。默认值为 `None`。
+
+![image-20240920155907107](images/image-20240920155907107.png)
+
+### Conv2d与ConvTranspose2d
+
+- **`nn.Conv2d`**：执行标准的卷积操作，通常用于从输入特征图中提取特征，输出特征图的尺寸通常小于或等于输入特征图的尺寸。
+
+   - $$
+      \text{Output Size} = \left\lfloor \frac{\text{Input Size} - \text{Kernel Size} + 2 \times \text{Padding}}{\text{Stride}} \right\rfloor + 1
+      $$
+
+- **`nn.ConvTranspose2d`**：执行转置卷积（也称为反卷积），用于上采样操作，生成模型（如生成对抗网络，GANs），输出特征图的尺寸通常大于或等于输入特征图的尺寸。
+
+   - $$
+      \text{Output Size} = (\text{Input Size} - 1) \times \text{Stride} - 2 \times \text{Padding} + \text{Kernel Size} + \text{Output Padding}
+      $$
+
 
 ##  nn.Flatten
 
@@ -504,12 +544,12 @@ class torch.nn.ModuleList(modules=None)
 - **`__setitem__(index, module)`**：根据索引设置 `ModuleList` 中的子模块。
 - **`__len__()`**：返回 `ModuleList` 中子模块的数量。
 
-## .view
+## torch.view
 
 `view` 是 PyTorch 中的一个方法，用于对张量进行重塑（reshape），即改变张量的形状而不改变其数据。
 
 ```python
-Tensor.view(*shape)
+torch.view(*shape)
 ```
 
 - **`*shape`**：一个整数序列，表示新的形状。可以是多个整数参数或一个包含多个整数的元组。
@@ -825,13 +865,331 @@ downscaled_x = F.interpolate(x, size=(120, 120), mode='bilinear', align_corners=
 print(downscaled_x.shape)  # 输出: torch.Size([1, 3, 120, 120])
 ```
 
+## torch.unbind
+
+`torch.unbind` 用于移除指定维度，并返回一个包含沿该维度切片后的各个张量的元组。
+
+```python
+torch.unbind(input, dim=0) -> seq
+```
+
+- **`input`**: 需要进行操作的输入张量。
+- **`dim`**: 需要移除的维度，默认值为 `0`。
+
+返回一个元组，包含沿指定维度切片后的各个张量。
+
+```python
+import torch
+
+x = torch.tensor([
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9]
+])
+result = torch.unbind(x, dim=0)
+print(result)
+result = torch.unbind(x, dim=1)
+print(result)
+
+
+#OUTPUT:
+(tensor([1, 2, 3]), tensor([4, 5, 6]), tensor([7, 8, 9]))
+(tensor([1, 4, 7]), tensor([2, 5, 8]), tensor([3, 6, 9]))
+```
+
+## torch.transpose
+
+`torch.transpose` 是 PyTorch 中用于交换张量指定维度的函数。
+
+```python
+torch.transpose(input, dim0, dim1) -> Tensor
+```
+
+- **`input`**: 需要进行转置操作的输入张量。
+- **`dim0`**: 需要交换的第一个维度。
+- **`dim1`**: 需要交换的第二个维度。
+
+返回一个新的张量，该张量是输入张量在指定维度上交换后的结果。
+
+```python
+import torch
+
+x = torch.tensor([
+    [1, 2, 3],
+    [4, 5, 6]
+])
+y = torch.transpose(x, 0, 1)
+print(y)
+#output:
+tensor([
+    [1, 4],
+    [2, 5],
+    [3, 6]
+])
+```
+
+## torch.ones
+
+`torch.ones` 是 PyTorch 中的一个函数，创建一个填充了标量值 1 的张量。
+
+```python
+torch.ones(*size, *, out=None, dtype=None, layout=torch.strided, device=None, requires_grad=False) → Tensor
+```
+
+- **size (int…)**: 定义输出张量形状的整数序列。可以是可变数量的参数或列表、元组等集合。
+- **out (Tensor, optional)**: 输出张量。
+- **dtype (torch.dtype, optional)**: 返回张量的所需数据类型。默认情况下，如果为 None，则使用全局默认值（参见 `torch.set_default_dtype()`）。
+- **layout (torch.layout, optional)**: 返回张量的所需布局。默认值为 `torch.strided`。
+- **device (torch.device, optional)**: 返回张量的所需设备。默认情况下，如果为 None，则使用当前设备作为默认张量类型（参见 `torch.set_default_device()`）。对于 CPU 张量类型，设备将是 CPU；对于 CUDA 张量类型，设备将是当前 CUDA 设备。
+- **requires_grad (bool, optional)**: 是否需要记录对返回张量的操作以用于自动求导。默认值为 False。
+
+## torch.cumsum
+
+`torch.cumsum` 是 PyTorch 中的一个函数，用于计算张量在指定维度上的累积和。
+
+```python
+torch.cumsum(input, dim, *, dtype=None, out=None) → Tensor
+```
+
+- **input (Tensor)**: 输入的张量。
+- **dim (int)**: 指定进行累积和操作的维度。
+- **dtype (torch.dtype, optional)**: 返回张量的所需数据类型。如果指定，输入张量会在操作前被转换为该数据类型。这对于防止数据类型溢出非常有用。默认值为 None。
+- **out (Tensor, optional)**: 输出张量。
+
+```python
+import torch
+
+# 创建一个一维张量
+a = torch.tensor([1, 2, 3, 4])
+# 在维度 0 上计算累积和
+cumsum_a = torch.cumsum(a, dim=0)
+print(cumsum_a)
+# 输出:
+# tensor([ 1,  3,  6, 10])
 
 
 
 
 
 
+# 创建一个二维张量
+b = torch.tensor([[1, 2, 3], [4, 5, 6]])
+# 在维度 0 上计算累积和
+#	第一行保持不变。
+#	第二行是第一行和第二行的和。
+cumsum_b_dim0 = torch.cumsum(b, dim=0)
+print(cumsum_b_dim0)
+# 输出:
+# tensor([[1, 2, 3],
+#         [5, 7, 9]])
 
+# 在维度 1 上计算累积和
+cumsum_b_dim1 = torch.cumsum(b, dim=1)
+print(cumsum_b_dim1)
+# 输出:
+# tensor([[ 1,  3,  6],
+#         [ 4,  9, 15]])
+```
+
+## torch.stack
+
+`torch.stack` 是 PyTorch 中的一个函数，用于沿新维度连接一系列张量。
+
+```python
+torch.stack(tensors, dim=0, *, out=None) → Tensor
+```
+
+- **tensors (sequence of Tensors)**: 要连接的张量序列。所有张量必须具有相同的形状。
+- **dim (int, optional)**: 插入新维度的位置。必须在 0 和连接张量的维度数之间（包括两端）。默认值为 0。
+- **out (Tensor, optional)**: 输出张量。
+
+```python
+import torch
+#[2,3]
+x = torch.tensor([[0.3367, 0.1288, 0.2345],
+                  [0.2303, -1.1229, -0.1863]])
+y = torch.tensor([[0.3367, 0.1288, 0.2345],
+                  [0.2303, -1.1229, -0.1863]])
+
+# 沿新维度 0 连接张量
+stacked_0 = torch.stack((x, y), dim=0)
+#stacked_0[0] = x
+#stacked_0[1] = y
+print(stacked_0)
+# 输出:
+# tensor([[[ 0.3367,  0.1288,  0.2345],
+#          [ 0.2303, -1.1229, -0.1863]],
+#         [[ 0.3367,  0.1288,  0.2345],
+#          [ 0.2303, -1.1229, -0.1863]]])
+
+# 沿新维度 1 连接张量
+stacked_1 = torch.stack((x, y), dim=1)
+#stacked_1[:, 0, :] = x
+#stacked_1[:, 1, :] = y
+print(stacked_1)
+# 输出:
+# tensor([[[ 0.3367,  0.1288,  0.2345],
+#          [ 0.3367,  0.1288,  0.2345]],
+#         [[ 0.2303, -1.1229, -0.1863],
+#          [ 0.2303, -1.1229, -0.1863]]])
+
+# 沿新维度 2 连接张量
+stacked_2 = torch.stack((x, y), dim=2)
+print(stacked_2)
+# 输出:
+# tensor([[[ 0.3367,  0.3367],
+#          [ 0.1288,  0.1288],
+#          [ 0.2345,  0.2345]],
+#         [[ 0.2303,  0.2303],
+#          [-1.1229, -1.1229],
+#          [-0.1863, -0.1863]]])
+```
+
+## nn.Embedding
+
+`nn.Embedding`  PyTorch 中用于创建嵌入层的模块。通常用于将离散的输入（如单词索引）映射到连续的高维向量空间，将离散的、通常是高维的输入数据转换为低维的、密集的向量表示，
+
+```python
+torch.nn.Embedding(num_embeddings, embedding_dim, padding_idx=None, max_norm=None, norm_type=2.0, scale_grad_by_freq=False, sparse=False, _weight=None, _freeze=False, device=None, dtype=None)
+```
+
+- **`num_embeddings`** (int): 嵌入字典的大小，即词汇表的大小。
+- **`embedding_dim`** (int): 每个嵌入向量的维度。假如每个向量的维度为 3 时，每个嵌入向量由 3 个数值（或特征）组成。可以看作是一个三维空间中的坐标，用于表示输入数据的特征。
+- **`padding_idx`** (int, 可选): 如果指定，`padding_idx` 处的条目不会对梯度产生贡献，因此在训练期间嵌入向量不会更新，通常用于填充。
+- **`max_norm`** (float, 可选): 如果给定，每个嵌入向量的范数大于 `max_norm` 时会被重新归一化。
+- **`norm_type`** (float, 可选): 用于计算 `max_norm` 的 p 范数，默认值为 2。
+- **`scale_grad_by_freq`** (bool, 可选): 如果为 True，梯度将按词在小批量中的频率的倒数进行缩放，默认值为 False。
+- **`sparse`** (bool, 可选): 如果为 True，权重矩阵的梯度将是稀疏张量。
+- **`_weight`** (Tensor, 可选): 预初始化的权重矩阵。
+- **`_freeze`** (bool, 可选): 如果为 True，嵌入层的权重将被冻结，不会在训练期间更新。
+- **`device`** (torch.device, 可选): 指定创建张量的设备。
+- **`dtype`** (torch.dtype, 可选): 指定创建张量的数据类型。
+
+1. **降维和稠密表示**：嵌入层将高维的稀疏表示（如独热编码）转换为低维的稠密向量表示，减少计算复杂度。
+
+2. **捕捉语义信息**：通过训练，嵌入向量可以捕捉到输入数据的语义信息。例如，在自然语言处理中，语义相似的单词会被映射到相近的向量。
+
+   - 将高维的离散数据（如单词索引）映射到低维的连续向量空间，减少计算和存储开销。
+
+   - 将低维的离散数据映射到高维的连续向量空间，以便提取更丰富的特征。
+
+   - 通过训练，`nn.Embedding` 可以学习到输入数据中的语义或结构信息，使得相似的输入在嵌入空间中具有相似的向量表示。
+
+   ```python
+   import torch
+   import torch.nn as nn
+   
+   # 假设我们有一个词汇表，包含10000个不同的单词
+   vocab_size = 10000
+   # 每个单词用128维的向量表示
+   embedding_dim = 128
+   
+   # 创建一个 nn.Embedding 实例
+   embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim)
+   
+   # 假设我们有一句话，经过分词后，得到的单词索引序列
+   word_indices = torch.tensor([34, 567, 123, 9001, 2133], dtype=torch.long)
+   
+   # 使用 nn.Embedding 层获取对应的词嵌入向量
+   word_vecs = embedding(word_indices)
+   
+   print(word_vecs)
+   print(word_vecs.shape)  # 输出 (5, 128)
+   ```
+
+## torch.empty
+
+`torch.empty` 是 PyTorch 中的一个函数，用于创建一个未初始化的张量（tensor）。未初始化的张量不会被清零，它们的值是未知的，可能包含任意值。
+
+```python
+torch.empty(*size, *, out=None, dtype=None, layout=torch.strided, device=None, requires_grad=False, pin_memory=False, memory_format=torch.contiguous_format) -> Tensor
+```
+
+- **size (int…)**: 定义输出张量的形状，可以是多个整数或一个包含多个整数的列表或元组。
+- **out (Tensor, optional)**: 指定输出的张量。
+- **dtype (torch.dtype, optional)**: 指定返回张量的数据类型。默认使用全局默认数据类型（可以通过 `torch.set_default_dtype()` 设置）。
+- **layout (torch.layout, optional)**: 指定返回张量的布局。默认值是 `torch.strided`。
+- **device (torch.device, optional)**: 指定返回张量所在的设备。默认情况下，使用当前设备的默认张量类型（CPU 或 CUDA）。
+- **requires_grad (bool, optional)**: 如果为 `True`，则autograd会记录对返回张量的操作。默认值为 `False`。
+- **pin_memory (bool, optional)**: 如果设置为 `True`，返回的张量将分配在固定内存中。仅对CPU张量有效。默认值为 `False`。
+- **memory_format (torch.memory_format, optional)**: 指定返回张量的内存格式。默认值是 `torch.contiguous_format`。
+
+## torch.expand
+
+`torch.expand` 是 PyTorch 中的一个方法，用于扩展张量的维度。它返回一个新的视图，其中单个维度被扩展到更大的尺寸。这个方法不会分配新的内存，而是创建一个现有张量的新视图，其中尺寸为1的维度被扩展到更大的尺寸。
+
+```python
+Tensor.expand(*sizes) -> Tensor
+```
+
+- **sizes (torch.Size 或 int…)**: 期望的扩展尺寸。对于某个维度，如果传入 -1，则表示该维度的大小不变。
+
+```python
+import torch
+
+# 创建一个形状为 (3, 1) 的张量
+x = torch.tensor([[1], [2], [3]])
+print("原始张量：")
+print(x)
+
+# 扩展张量到形状 (3, 4)
+expanded_x = x.expand(3, 4)
+print("扩展后的张量：")
+print(expanded_x)
+# 扩展张量到形状 (3, 4)，保持第一个维度不变
+expanded_x = x.expand(-1, 4)
+print("扩展后的张量（保持第一个维度不变）：")
+print(expanded_x)
+
+
+
+output:
+    
+
+#原始张量：
+tensor([[1],
+        [2],
+        [3]])
+#扩展后的张量：
+tensor([[1, 1, 1, 1],
+        [2, 2, 2, 2],
+        [3, 3, 3, 3]])
+#扩展后的张量（保持第一个维度不变）：
+tensor([[1, 1, 1, 1],
+        [2, 2, 2, 2],
+        [3, 3, 3, 3]])
+```
+
+## torch.repeat_interleave
+
+`torch.repeat_interleave` 是 PyTorch 中的一个函数，用于按指定方式重复张量的元素。
+
+```python
+torch.repeat_interleave(input, repeats, dim=None, *, output_size=None) -> Tensor
+```
+
+- **input (Tensor)**: 输入张量。
+- **repeats (Tensor 或 int)**: 每个元素的重复次数。`repeats` 可以是一个整数或一个张量。如果是张量，它会被广播以适应给定维度的形状。
+- **dim (int, optional)**: 指定沿哪个维度重复值。如果未指定，则将输入张量展平，并返回一个展平的输出张量。
+- **output_size (int, optional)**: 给定轴的总输出大小（例如 `repeats` 的总和）。如果提供，它将避免计算张量输出形状时所需的流同步。
+
+```python
+import torch
+
+x = torch.tensor([1, 2, 3])
+repeated_x = torch.repeat_interleave(x, 2)
+print(repeated_x)  # 输出: tensor([1, 1, 2, 2, 3, 3])
+
+y = torch.tensor([[1, 2], [3, 4]])
+repeated_y = torch.repeat_interleave(y, 2)
+print(repeated_y)  # 输出: tensor([1, 1, 2, 2, 3, 3, 4, 4])
+repeated_y_dim1 = torch.repeat_interleave(y, 3, dim=1)
+print(repeated_y_dim1)  # 输出: tensor([[1, 1, 1, 2, 2, 2], [3, 3, 3, 4, 4, 4]])
+
+repeats = torch.tensor([1, 2])
+repeated_y_diff = torch.repeat_interleave(y, repeats, dim=0)
+print(repeated_y_diff)  # 输出: tensor([[1, 2], [3, 4], [3, 4]])
+```
 
 
 
@@ -929,7 +1287,7 @@ age: 30
 city: New York
 ```
 
-## \_\_call\_\_
+## \_\_call\_\_(auto forward)
 
 ​	在 PyTorch 中，调用一个模块实例时，例如 `self.up_concat4(feat4, feat5)`，会自动调用该模块的 `forward` 方法。`nn.Module` 类重载了 `__call__` 方法，使得调用模块实例时会执行 `forward` 方法。
 

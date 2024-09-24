@@ -69,3 +69,4 @@ $$
 
 - **`x` 的形状**：假设 `x` 的形状为 `(batch_size, seq_len, embed_dim)`，其中 `batch_size` 是批量大小，`seq_len` 是序列长度（包括 CLS token 和所有图像块和位置信息），`embed_dim` 是嵌入维度。
 - **`x[:, 0, :]`**：这个操作提取了每个批次中第一个位置（CLS token）的嵌入特征，结果是一个形状为 `(batch_size, 1，embed_dim)` 的张量。
+
